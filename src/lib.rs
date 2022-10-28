@@ -25,11 +25,19 @@ pub mod pallet {
 	};
 
 	#[derive(Encode, Decode, TypeInfo)]
+	pub enum MatchState {
+		AwaitingOpponent,
+		OnGoing,
+		Finished,
+	}
+
+	#[derive(Encode, Decode, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Match<T: Config> {
 		pub white: T::AccountId,
 		pub black: T::AccountId,
 		pub board: Vec<u8>,
+		pub state: MatchState,
 	}
 
 	#[pallet::pallet]
