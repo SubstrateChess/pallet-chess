@@ -17,7 +17,7 @@ mod benchmarking;
 #[frame_support::pallet]
 pub mod pallet {
 	use chess::Game;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
 	use frame_system::pallet_prelude::*;
 	use sp_std::{
 		str::{from_utf8, FromStr},
@@ -34,8 +34,8 @@ pub mod pallet {
 	#[derive(Encode, Decode, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Match<T: Config> {
-		pub white: T::AccountId,
-		pub black: T::AccountId,
+		pub challenger: T::AccountId,
+		pub opponent: T::AccountId,
 		pub board: Vec<u8>,
 		pub state: MatchState,
 	}
@@ -48,7 +48,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn nonce)]
-	pub(super) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub(super) type Nonce<T: Config> = StorageValue<_, u128, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn letter)]
@@ -63,15 +63,69 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {}
+	pub enum Event<T: Config> {
+		MatchCreated(T::AccountId, T::AccountId, T::Hash),
+	}
 
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		NonceOverflow,
+	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight(0)]
+		pub fn create_match(origin: OriginFor<T>, opponent: T::AccountId) -> DispatchResult {
+			let challenger = ensure_signed(origin)?;
+
+			// todo: reserve deposit of challenger
+
+			let new_match: Match<T> = Match {
+				challenger: challenger.clone(),
+				opponent: opponent.clone(),
+				board: Self::init_game(),
+				state: MatchState::AwaitingOpponent,
+			};
+
+			let match_id = Self::match_id(challenger.clone(), opponent.clone());
+			<Matches<T>>::insert(match_id, new_match);
+			Self::increment_nonce()?;
+
+			Self::deposit_event(Event::MatchCreated(challenger, opponent, match_id));
+
+			Ok(())
+		}
+
+		#[pallet::weight(0)]
+		pub fn join_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
+			// todo: check origin is opponent
+
+			// todo: reserve deposit of opponent
+
+			// todo: change match state
+
+			// todo: anything else?
+
+			Ok(())
+		}
+	}
 
 	impl<T: Config> Pallet<T> {
+		fn increment_nonce() -> DispatchResult {
+			<Nonce<T>>::try_mutate(|nonce| {
+				let next = nonce.checked_add(1).ok_or(Error::<T>::NonceOverflow)?;
+				*nonce = next;
+
+				Ok(().into())
+			})
+		}
+
+		fn match_id(challenger: T::AccountId, opponent: T::AccountId) -> T::Hash {
+			let nonce = <Nonce<T>>::get();
+
+			T::Hashing::hash_of(&(challenger, opponent, nonce))
+		}
+
 		fn init_game() -> Vec<u8> {
 			Game::new().current_position().to_string().as_bytes().to_vec()
 		}
