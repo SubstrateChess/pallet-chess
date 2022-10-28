@@ -132,6 +132,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn init_game() -> Vec<u8> {
+			Game::new().current_position().to_string().as_bytes().to_vec()
+		}
+
 		fn encode_game(game: Game) -> Vec<u8> {
 			game.current_position().to_string().as_bytes().to_vec()
 		}
