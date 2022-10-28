@@ -32,13 +32,14 @@ pub mod pallet {
 		Finished,
 	}
 
-	#[derive(Encode, Decode, TypeInfo)]
+	#[derive(Debug, Encode, Decode, TypeInfo, PartialEq)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Match<T: Config> {
 		pub challenger: T::AccountId,
 		pub opponent: T::AccountId,
 		pub board: Vec<u8>,
 		pub state: MatchState,
+		pub nonce: u128,
 	}
 
 	#[pallet::pallet]
@@ -71,6 +72,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		MatchCreated(T::AccountId, T::AccountId, T::Hash),
+		MatchAborted(T::Hash),
 		MatchStarted(T::Hash),
 	}
 
@@ -79,6 +81,7 @@ pub mod pallet {
 		NonceOverflow,
 		NonExistentMatch,
 		NotMatchOpponent,
+		NotMatchChallenger,
 		InvalidBoardEncoding,
 	}
 
@@ -96,6 +99,7 @@ pub mod pallet {
 				opponent: opponent.clone(),
 				board: Self::init_board(),
 				state: MatchState::AwaitingOpponent,
+				nonce: nonce.clone(),
 			};
 
 			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
@@ -108,7 +112,28 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// todo: abort match
+		#[pallet::weight(0)]
+		pub fn abort_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut chess_match = match Self::chess_matches(match_id) {
+				Some(m) => m,
+				None => return Err(Error::<T>::NonExistentMatch.into()),
+			};
+
+			if who != chess_match.challenger {
+				return Err(Error::<T>::NotMatchChallenger.into());
+			}
+
+			// todo: release reserve deposit to challenger
+
+			<Matches<T>>::remove(match_id);
+			<AllMatchesArray<T>>::remove(chess_match.nonce);
+
+			Self::deposit_event(Event::MatchAborted(match_id));
+
+			Ok(())
+		}
 
 		#[pallet::weight(0)]
 		pub fn join_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
