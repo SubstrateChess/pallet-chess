@@ -132,7 +132,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		fn encode_board(game: Game) -> Vec<u8> {
+		fn encode_game(game: Game) -> Vec<u8> {
 			game.current_position().to_string().as_bytes().to_vec()
 		}
 
