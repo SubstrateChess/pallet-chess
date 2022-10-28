@@ -24,7 +24,7 @@ pub mod pallet {
 		vec,
 	};
 
-	#[derive(Encode, Decode, TypeInfo)]
+	#[derive(Debug, Encode, Decode, TypeInfo, PartialEq)]
 	pub enum MatchState {
 		AwaitingOpponent,
 		OnGoing,
@@ -51,8 +51,13 @@ pub mod pallet {
 	pub(super) type Nonce<T: Config> = StorageValue<_, u128, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn letter)]
+	#[pallet::getter(fn matches)]
 	pub(super) type Matches<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Match<T>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn match_id_from_nonce)]
+	pub(super) type AllMatchesArray<T: Config> =
+		StorageMap<_, Twox64Concat, u128, T::Hash, ValueQuery>;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -79,6 +84,7 @@ pub mod pallet {
 			let challenger = ensure_signed(origin)?;
 
 			// todo: reserve deposit of challenger
+			let nonce = <Nonce<T>>::get();
 
 			let new_match: Match<T> = Match {
 				challenger: challenger.clone(),
@@ -87,8 +93,9 @@ pub mod pallet {
 				state: MatchState::AwaitingOpponent,
 			};
 
-			let match_id = Self::match_id(challenger.clone(), opponent.clone());
+			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
 			<Matches<T>>::insert(match_id, new_match);
+			<AllMatchesArray<T>>::insert(nonce, match_id);
 			Self::increment_nonce()?;
 
 			Self::deposit_event(Event::MatchCreated(challenger, opponent, match_id));
@@ -120,9 +127,7 @@ pub mod pallet {
 			})
 		}
 
-		fn match_id(challenger: T::AccountId, opponent: T::AccountId) -> T::Hash {
-			let nonce = <Nonce<T>>::get();
-
+		fn match_id(challenger: T::AccountId, opponent: T::AccountId, nonce: u128) -> T::Hash {
 			T::Hashing::hash_of(&(challenger, opponent, nonce))
 		}
 
@@ -148,15 +153,4 @@ pub mod pallet {
 			}
 		}
 	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn encode_game_works() {}
-
-	#[test]
-	fn decode_game_works() {}
 }
