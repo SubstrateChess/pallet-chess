@@ -16,25 +16,25 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use chess::Game;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_std::vec;
-	use serde::{Serialize, Deserialize};
-	use chess::Game;
-
-	// #[derive(Serialize, Deserialize, PartialEq, Debug)]
-	// struct SerDeGame(Game);
+	use sp_std::{
+		str::{from_utf8, FromStr},
+		vec,
+	};
 
 	#[derive(Encode, Decode, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Match<T: Config> {
 		pub white: T::AccountId,
 		pub black: T::AccountId,
-		pub game: Game, // or Vec<u8> ?
+		pub board: Vec<u8>,
 	}
 
 	#[pallet::pallet]
-	#[pallet::without_storage_info] // https://stackoverflow.com/questions/70206199/substrate-tutorials-trait-maxencodedlen-is-not-implemented-for-vecu8
+	#[pallet::without_storage_info]
+	// https://stackoverflow.com/questions/70206199/substrate-tutorials-trait-maxencodedlen-is-not-implemented-for-vecu8
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
@@ -44,8 +44,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn letter)]
-	pub(super) type Matches<T: Config> =
-		StorageMap<_, Twox64Concat, T::Hash, Match<T>>;
+	pub(super) type Matches<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Match<T>>;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -125,14 +124,33 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		fn encode_board(game: Game) -> Vec<u8> {
+			game.current_position().to_string().as_bytes().to_vec()
+		}
 
-		// fn encode_game(game: Game) -> Vec<u8> {
-		// 	todo!()
-		// }
-		//
-		// fn decode_game(encoded_game: Vec<u8>) -> Game {
-		// 	todo!()
-		// }
+		fn decode_game(
+			encoded_game: Vec<u8>,
+		) -> sp_std::result::Result<Game, TransactionValidityError> {
+			let s = match from_utf8(encoded_game.as_slice()) {
+				Ok(s) => s,
+				Err(_) => "",
+			};
+			match Game::from_str(s) {
+				Ok(g) => Ok(g),
+				// todo: check if there's a better way to handle this
+				Err(_) => Err(TransactionValidityError::Unknown(UnknownTransaction::Custom(0))),
+			}
+		}
 	}
 }
 
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn encode_game_works() {}
+
+	#[test]
+	fn decode_game_works() {}
+}
