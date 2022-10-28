@@ -19,9 +19,10 @@ pub mod pallet {
 	use cozy_chess::Board;
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
 	use frame_system::pallet_prelude::*;
+	use scale_info::prelude::format;
 	use sp_std::{
 		str::{from_utf8, FromStr},
-		vec,
+		vec::Vec,
 	};
 
 	#[derive(Debug, Encode, Decode, TypeInfo, PartialEq)]
