@@ -83,6 +83,7 @@ pub mod pallet {
 		NotMatchOpponent,
 		NotMatchChallenger,
 		InvalidBoardEncoding,
+		NotAwaitingOpponent,
 	}
 
 	#[pallet::call]
@@ -123,6 +124,10 @@ pub mod pallet {
 
 			if who != chess_match.challenger {
 				return Err(Error::<T>::NotMatchChallenger.into());
+			}
+
+			if chess_match.state != MatchState::AwaitingOpponent {
+				return Err(Error::<T>::NotAwaitingOpponent.into());
 			}
 
 			// todo: release reserve deposit to challenger
