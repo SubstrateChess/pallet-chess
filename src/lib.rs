@@ -145,11 +145,11 @@ pub mod pallet {
 		}
 
 		fn init_game() -> Vec<u8> {
-			Game::new().current_position().to_string().as_bytes().to_vec()
+			format!("{}", Game::new().current_position()).as_bytes().to_vec()
 		}
 
 		fn encode_game(game: Game) -> Vec<u8> {
-			game.current_position().to_string().as_bytes().to_vec()
+			format!("{}", game.current_position()).as_bytes().to_vec()
 		}
 
 		fn decode_game(
