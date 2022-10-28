@@ -51,11 +51,11 @@ pub mod pallet {
 	pub(super) type Nonce<T: Config> = StorageValue<_, u128, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn matches)]
+	#[pallet::getter(fn chess_matches)]
 	pub(super) type Matches<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Match<T>>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn match_id_from_nonce)]
+	#[pallet::getter(fn chess_match_id_from_nonce)]
 	pub(super) type AllMatchesArray<T: Config> =
 		StorageMap<_, Twox64Concat, u128, T::Hash, ValueQuery>;
 
@@ -70,11 +70,14 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		MatchCreated(T::AccountId, T::AccountId, T::Hash),
+		MatchStarted(T::Hash),
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		NonceOverflow,
+		NonExistentMatch,
+		NotMatchOpponent,
 	}
 
 	#[pallet::call]
@@ -105,13 +108,23 @@ pub mod pallet {
 
 		#[pallet::weight(0)]
 		pub fn join_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
-			// todo: check origin is opponent
+			let who = ensure_signed(origin)?;
+
+			let mut chess_match = match Self::chess_matches(match_id) {
+				Some(m) => m,
+				None => return Err(Error::<T>::NonExistentMatch.into()),
+			};
+
+			if who != chess_match.opponent {
+				return Err(Error::<T>::NotMatchOpponent.into());
+			}
 
 			// todo: reserve deposit of opponent
 
-			// todo: change match state
+			chess_match.state = MatchState::OnGoing;
+			<Matches<T>>::insert(match_id, chess_match);
 
-			// todo: anything else?
+			Self::deposit_event(Event::MatchStarted(match_id));
 
 			Ok(())
 		}
