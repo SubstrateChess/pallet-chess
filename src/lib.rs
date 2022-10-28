@@ -58,7 +58,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn chess_match_id_from_nonce)]
-	pub(super) type AllMatchesArray<T: Config> =
+	pub(super) type MatchIdFromNonce<T: Config> =
 		StorageMap<_, Twox64Concat, u128, T::Hash, ValueQuery>;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -104,7 +104,7 @@ pub mod pallet {
 
 			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
 			<Matches<T>>::insert(match_id, new_match);
-			<AllMatchesArray<T>>::insert(nonce, match_id);
+			<MatchIdFromNonce<T>>::insert(nonce, match_id);
 			Self::increment_nonce()?;
 
 			Self::deposit_event(Event::MatchCreated(challenger, opponent, match_id));
@@ -128,7 +128,7 @@ pub mod pallet {
 			// todo: release reserve deposit to challenger
 
 			<Matches<T>>::remove(match_id);
-			<AllMatchesArray<T>>::remove(chess_match.nonce);
+			<MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
 			Self::deposit_event(Event::MatchAborted(match_id));
 
