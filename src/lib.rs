@@ -79,6 +79,7 @@ pub mod pallet {
 		NonceOverflow,
 		NonExistentMatch,
 		NotMatchOpponent,
+		InvalidBoardEncoding,
 	}
 
 	#[pallet::call]
@@ -106,6 +107,8 @@ pub mod pallet {
 
 			Ok(())
 		}
+
+		// todo: abort match
 
 		#[pallet::weight(0)]
 		pub fn join_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
@@ -153,17 +156,14 @@ pub mod pallet {
 			format!("{}", board).as_bytes().to_vec()
 		}
 
-		fn decode_board(
-			encoded_board: Vec<u8>,
-		) -> sp_std::result::Result<Board, TransactionValidityError> {
+		fn decode_board(encoded_board: Vec<u8>) -> sp_std::result::Result<Board, Error<T>> {
 			let s = match from_utf8(encoded_board.as_slice()) {
 				Ok(s) => s,
 				Err(_) => "",
 			};
 			match Board::from_str(s) {
 				Ok(g) => Ok(g),
-				// todo: check if there's a better way to handle this
-				Err(_) => Err(TransactionValidityError::Unknown(UnknownTransaction::Custom(0))),
+				Err(_) => Err(Error::<T>::InvalidBoardEncoding.into()),
 			}
 		}
 	}
