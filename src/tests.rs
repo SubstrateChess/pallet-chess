@@ -1,5 +1,5 @@
 use crate::{mock::*, MatchState};
-use chess::Game;
+use cozy_chess::Board;
 use frame_support::assert_ok;
 
 const A: u64 = 1;
@@ -17,10 +17,7 @@ fn create_match_works() {
 
 		assert_eq!(chess_match.challenger, A);
 		assert_eq!(chess_match.opponent, B);
-		assert_eq!(
-			chess_match.board,
-			Game::new().current_position().to_string().as_bytes().to_vec()
-		);
+		assert_eq!(chess_match.board, Board::default().to_string().as_bytes().to_vec());
 		assert_eq!(chess_match.state, MatchState::AwaitingOpponent);
 
 		// todo: assert final free balance of A

@@ -16,7 +16,7 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use chess::Game;
+	use cozy_chess::Board;
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
 	use frame_system::pallet_prelude::*;
 	use sp_std::{
@@ -92,7 +92,7 @@ pub mod pallet {
 			let new_match: Match<T> = Match {
 				challenger: challenger.clone(),
 				opponent: opponent.clone(),
-				board: Self::init_game(),
+				board: Self::init_board(),
 				state: MatchState::AwaitingOpponent,
 			};
 
@@ -144,22 +144,22 @@ pub mod pallet {
 			T::Hashing::hash_of(&(challenger, opponent, nonce))
 		}
 
-		fn init_game() -> Vec<u8> {
-			format!("{}", Game::new().current_position()).as_bytes().to_vec()
+		fn init_board() -> Vec<u8> {
+			format!("{}", Board::default()).as_bytes().to_vec()
 		}
 
-		fn encode_game(game: Game) -> Vec<u8> {
-			format!("{}", game.current_position()).as_bytes().to_vec()
+		fn encode_board(board: Board) -> Vec<u8> {
+			format!("{}", board).as_bytes().to_vec()
 		}
 
-		fn decode_game(
-			encoded_game: Vec<u8>,
-		) -> sp_std::result::Result<Game, TransactionValidityError> {
-			let s = match from_utf8(encoded_game.as_slice()) {
+		fn decode_board(
+			encoded_board: Vec<u8>,
+		) -> sp_std::result::Result<Board, TransactionValidityError> {
+			let s = match from_utf8(encoded_board.as_slice()) {
 				Ok(s) => s,
 				Err(_) => "",
 			};
-			match Game::from_str(s) {
+			match Board::from_str(s) {
 				Ok(g) => Ok(g),
 				// todo: check if there's a better way to handle this
 				Err(_) => Err(TransactionValidityError::Unknown(UnknownTransaction::Custom(0))),
