@@ -296,5 +296,44 @@ pub mod pallet {
 				Err(_) => Err(Error::<T>::InvalidMoveEncoding.into()),
 			}
 		}
+
+		// needed for benchmarking
+		// todo: check if pub is a vulnerability
+		pub fn force_board_state(
+			match_id: T::Hash,
+			encoded_board: Vec<u8>,
+		) -> sp_std::result::Result<(), Error<T>> {
+			let mut chess_match = match Self::chess_matches(match_id) {
+				Some(m) => m,
+				None => return Err(Error::<T>::NonExistentMatch.into()),
+			};
+
+			chess_match.board = encoded_board.clone();
+
+			let board_obj = Self::decode_board(encoded_board)?;
+			chess_match.state = match board_obj.status() {
+				GameStatus::Ongoing => match board_obj.side_to_move() {
+					Color::White => MatchState::OnGoing(NextMove::Whites),
+					Color::Black => MatchState::OnGoing(NextMove::Blacks),
+				},
+				GameStatus::Won => MatchState::Won,
+				GameStatus::Drawn => MatchState::Drawn,
+			};
+
+			if chess_match.state == MatchState::Won {
+				// match is over, clean up storage
+				<Matches<T>>::remove(match_id);
+				<MatchIdFromNonce<T>>::remove(chess_match.nonce);
+			} else if chess_match.state == MatchState::Drawn {
+				// match is over, clean up storage
+				<Matches<T>>::remove(match_id);
+				<MatchIdFromNonce<T>>::remove(chess_match.nonce);
+			} else {
+				// match still ongoing, update on-chain board
+				<Matches<T>>::insert(match_id, chess_match);
+			}
+
+			Ok(())
+		}
 	}
 }

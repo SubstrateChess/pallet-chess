@@ -154,3 +154,20 @@ fn make_move_works() {
 		assert_eq!(Chess::chess_matches(match_id), None);
 	});
 }
+
+const BOARD_STATE: &str = "Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67";
+
+#[test]
+fn force_board_state_works() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
+
+		assert_ok!(Chess::force_board_state(match_id, BOARD_STATE.into()));
+
+		let chess_match = Chess::chess_matches(match_id).unwrap();
+		assert_eq!(chess_match.board, BOARD_STATE.as_bytes());
+	});
+}
