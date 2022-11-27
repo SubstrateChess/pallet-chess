@@ -16,7 +16,7 @@ mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use cozy_chess::Board;
+	use cozy_chess::{Board, Color, GameStatus, Move};
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::format;
@@ -25,14 +25,21 @@ pub mod pallet {
 		vec::Vec,
 	};
 
-	#[derive(Debug, Encode, Decode, TypeInfo, PartialEq)]
-	pub enum MatchState {
-		AwaitingOpponent,
-		OnGoing,
-		Finished,
+	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
+	pub enum NextMove {
+		Whites,
+		Blacks,
 	}
 
-	#[derive(Debug, Encode, Decode, TypeInfo, PartialEq)]
+	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
+	pub enum MatchState {
+		AwaitingOpponent,
+		OnGoing(NextMove),
+		Won,
+		Drawn,
+	}
+
+	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
 	#[scale_info(skip_type_params(T))]
 	pub struct Match<T: Config> {
 		pub challenger: T::AccountId,
@@ -74,6 +81,9 @@ pub mod pallet {
 		MatchCreated(T::AccountId, T::AccountId, T::Hash),
 		MatchAborted(T::Hash),
 		MatchStarted(T::Hash),
+		MoveExecuted(T::Hash, T::AccountId, Vec<u8>),
+		MatchWon(T::Hash, T::AccountId, Vec<u8>),
+		MatchDrawn(T::Hash, Vec<u8>),
 	}
 
 	#[pallet::error]
@@ -83,7 +93,12 @@ pub mod pallet {
 		NotMatchOpponent,
 		NotMatchChallenger,
 		InvalidBoardEncoding,
+		InvalidMoveEncoding,
 		NotAwaitingOpponent,
+		StillAwaitingOpponent,
+		MatchAlreadyFinished,
+		NotYourTurn,
+		IllegalMove,
 	}
 
 	#[pallet::call]
@@ -117,7 +132,7 @@ pub mod pallet {
 		pub fn abort_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut chess_match = match Self::chess_matches(match_id) {
+			let chess_match = match Self::chess_matches(match_id) {
 				Some(m) => m,
 				None => return Err(Error::<T>::NonExistentMatch.into()),
 			};
@@ -155,10 +170,85 @@ pub mod pallet {
 
 			// todo: reserve deposit of opponent
 
-			chess_match.state = MatchState::OnGoing;
+			chess_match.state = MatchState::OnGoing(NextMove::Whites);
 			<Matches<T>>::insert(match_id, chess_match);
 
 			Self::deposit_event(Event::MatchStarted(match_id));
+
+			Ok(())
+		}
+
+		#[pallet::weight(0)]
+		pub fn make_move(
+			origin: OriginFor<T>,
+			match_id: T::Hash,
+			move_fen: Vec<u8>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let mut chess_match = match Self::chess_matches(match_id) {
+				Some(m) => m,
+				None => return Err(Error::<T>::NonExistentMatch.into()),
+			};
+
+			match chess_match.state {
+				MatchState::AwaitingOpponent => {
+					return Err(Error::<T>::StillAwaitingOpponent.into())
+				},
+				MatchState::Won | MatchState::Drawn => {
+					return Err(Error::<T>::MatchAlreadyFinished.into())
+				},
+				MatchState::OnGoing(NextMove::Whites) => {
+					if who != chess_match.challenger {
+						return Err(Error::<T>::NotYourTurn.into());
+					}
+				},
+				MatchState::OnGoing(NextMove::Blacks) => {
+					if who != chess_match.opponent {
+						return Err(Error::<T>::NotYourTurn.into());
+					}
+				},
+			}
+
+			let mut board_obj: Board = Self::decode_board(chess_match.board)?;
+			let move_obj: Move = Self::decode_move(move_fen.clone())?;
+
+			if !board_obj.is_legal(move_obj) {
+				return Err(Error::<T>::IllegalMove.into());
+			}
+
+			// we already checked for legality, so we call play_unchecked (faster)
+			board_obj.play_unchecked(move_obj);
+
+			// check game status: Won? Drawn? OnGoing?
+			chess_match.state = match board_obj.status() {
+				GameStatus::Ongoing => match board_obj.side_to_move() {
+					Color::White => MatchState::OnGoing(NextMove::Whites),
+					Color::Black => MatchState::OnGoing(NextMove::Blacks),
+				},
+				GameStatus::Won => MatchState::Won,
+				GameStatus::Drawn => MatchState::Drawn,
+			};
+
+			chess_match.board = Self::encode_board(board_obj);
+
+			Self::deposit_event(Event::MoveExecuted(match_id, who.clone(), move_fen));
+			if chess_match.state == MatchState::Won {
+				Self::deposit_event(Event::MatchWon(match_id, who, chess_match.board.clone()));
+
+				// match is over, clean up storage
+				<Matches<T>>::remove(match_id);
+				<MatchIdFromNonce<T>>::remove(chess_match.nonce);
+			} else if chess_match.state == MatchState::Drawn {
+				Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
+
+				// match is over, clean up storage
+				<Matches<T>>::remove(match_id);
+				<MatchIdFromNonce<T>>::remove(chess_match.nonce);
+			} else {
+				// match still ongoing, update on-chain board
+				<Matches<T>>::insert(match_id, chess_match);
+			}
 
 			Ok(())
 		}
@@ -194,6 +284,17 @@ pub mod pallet {
 			match Board::from_str(s) {
 				Ok(g) => Ok(g),
 				Err(_) => Err(Error::<T>::InvalidBoardEncoding.into()),
+			}
+		}
+
+		fn decode_move(encoded_move: Vec<u8>) -> sp_std::result::Result<Move, Error<T>> {
+			let s = match from_utf8(encoded_move.as_slice()) {
+				Ok(s) => s,
+				Err(_) => "",
+			};
+			match Move::from_str(s) {
+				Ok(m) => Ok(m),
+				Err(_) => Err(Error::<T>::InvalidMoveEncoding.into()),
 			}
 		}
 	}
