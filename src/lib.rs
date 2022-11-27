@@ -56,8 +56,8 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	#[pallet::getter(fn nonce)]
-	pub(super) type Nonce<T: Config> = StorageValue<_, u128, ValueQuery>;
+	#[pallet::getter(fn next_nonce)]
+	pub(super) type NextNonce<T: Config> = StorageValue<_, u128, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn chess_matches)]
@@ -108,7 +108,7 @@ pub mod pallet {
 			let challenger = ensure_signed(origin)?;
 
 			// todo: reserve deposit of challenger
-			let nonce = <Nonce<T>>::get();
+			let nonce = <NextNonce<T>>::get();
 
 			let new_match: Match<T> = Match {
 				challenger: challenger.clone(),
@@ -256,7 +256,7 @@ pub mod pallet {
 
 	impl<T: Config> Pallet<T> {
 		fn increment_nonce() -> DispatchResult {
-			<Nonce<T>>::try_mutate(|nonce| {
+			<NextNonce<T>>::try_mutate(|nonce| {
 				let next = nonce.checked_add(1).ok_or(Error::<T>::NonceOverflow)?;
 				*nonce = next;
 
