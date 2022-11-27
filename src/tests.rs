@@ -12,7 +12,7 @@ fn create_match_works() {
 
 		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
 
-		let match_id = Chess::chess_match_id_from_nonce(0);
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 		let chess_match = Chess::chess_matches(match_id).unwrap();
 
 		assert_eq!(chess_match.challenger, A);
@@ -32,7 +32,7 @@ fn abort_match_works() {
 
 		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
 
-		let match_id = Chess::chess_match_id_from_nonce(0);
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_noop!(
 			Chess::abort_match(RuntimeOrigin::signed(B), match_id),
@@ -42,7 +42,7 @@ fn abort_match_works() {
 		assert_ok!(Chess::abort_match(RuntimeOrigin::signed(A), match_id));
 
 		assert_eq!(Chess::chess_matches(match_id), None);
-		// todo: assert Chess::chess_match_id_from_nonce(0)
+		assert_eq!(Chess::chess_match_id_from_nonce(0), None);
 
 		// todo: assert final free balance of A
 	});
@@ -54,7 +54,7 @@ fn join_match_works() {
 		// todo: assert initial balance of A and B
 
 		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
-		let match_id = Chess::chess_match_id_from_nonce(0);
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
 
@@ -71,7 +71,7 @@ fn make_move_works() {
 		System::set_block_number(1);
 
 		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
-		let match_id = Chess::chess_match_id_from_nonce(0);
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
 
@@ -123,7 +123,7 @@ fn make_move_works() {
 
 		// test MatchDrawn
 		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
-		let match_id = Chess::chess_match_id_from_nonce(1);
+		let match_id = Chess::chess_match_id_from_nonce(1).unwrap();
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "c2c4".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(B), match_id, "h7h5".into()));

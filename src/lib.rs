@@ -65,8 +65,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn chess_match_id_from_nonce)]
-	pub(super) type MatchIdFromNonce<T: Config> =
-		StorageMap<_, Twox64Concat, u128, T::Hash, ValueQuery>;
+	pub(super) type MatchIdFromNonce<T: Config> = StorageMap<_, Twox64Concat, u128, T::Hash>;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
