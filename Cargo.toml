@@ -12,6 +12,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 cozy-chess = { version = "0.3.1", default-features = false }
+log = "0.4.17"
 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",
