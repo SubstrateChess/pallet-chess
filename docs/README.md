@@ -18,7 +18,7 @@ Therefore, a heuristic approach based on statistics is necessary. The rationale 
 3. We establish a "safe" constant weight for the `make_move` extrinsic, which is applied regardless of board state 
    and move.
 
-This design was applied to `src/benchmarking.rs`. While there's nothing special about the benchmarks for 
+This design was applied to [`src/benchmarking.rs`](../src/benchmarking.rs). While there's nothing special about the benchmarks for 
 `create_match`, `abort_match` and `join_match`, the benchmark for `make_move` does some tricks to solve the 
 issue described above.
 
