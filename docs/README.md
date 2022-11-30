@@ -34,7 +34,7 @@ number of board states and `MOVES_PER_POSITION`, and it is used in the generatio
 This way, we guarantee that all moves are being benchmarked. There are however some known limitations with this 
 approach:
 - Some moves are repeated many times (board states with very few possible moves), which can 
-  potentially skew the results.
+  potentially skew the results. We'll address this later.
 - This strategy is not exhaustive, meaning that it does not cover every possible scenario. That means that there 
   could always be some combination of a board state and a move that will take more execution time than we accounted 
   for. However,  it is practically impossible to evaluate every possible scenario, and we need some sort of 
@@ -83,7 +83,9 @@ The Python script `analysis.py` was used to generate a histogram with all the ob
 ![](benchmarks_analysis.png)
 
 We can see that there's no samples to the right of the red dashed line, so we assume that we can multiply the average 
-weight by 3 and use it as a "safe" constant extrinsic weight for `make_move`.
+weight by 3 and use it as a "safe" constant extrinsic weight for `make_move`. Even if the average is heavily skewed by 
+the repetition of moves on `generate_moves`, the histogram shows that the multiplication by 3 helps us find a safe 
+upper limit, regardless of whether this is a "true" average or not. 
 
 After applying the logic explained above to `weights.rs`, `make_move` looked like this:
 ```
