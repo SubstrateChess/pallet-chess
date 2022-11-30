@@ -13,9 +13,12 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod weights;
+pub use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use crate::WeightInfo;
 	use cozy_chess::{Board, Color, GameStatus, Move};
 	use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
 	use frame_system::pallet_prelude::*;
@@ -72,6 +75,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -102,7 +106,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::create_match())]
 		pub fn create_match(origin: OriginFor<T>, opponent: T::AccountId) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
 
@@ -127,7 +131,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::abort_match())]
 		pub fn abort_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -154,7 +158,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::join_match())]
 		pub fn join_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -177,7 +181,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::make_move())]
 		pub fn make_move(
 			origin: OriginFor<T>,
 			match_id: T::Hash,
