@@ -23,7 +23,7 @@ This design was applied to [`src/benchmarking.rs`](../src/benchmarking.rs). Whil
 issue described above.
 
 The `POSITIONS` constant is an array with 25 different board states. The `generate_moves` function generates an 
-array with every possible move for some give board state. Because different board states can have different numbers of 
+array with every possible move for some given board state. Because different board states can have different numbers of 
 possible moves, the largest value was empirically collected (52) and set as the `MOVES_PER_POSITION` constant. 
 In order to have `generate_moves` always output arrays with the same length, moves are repeated until the array 
 is filled with `MOVES_PER_POSITION` moves.
