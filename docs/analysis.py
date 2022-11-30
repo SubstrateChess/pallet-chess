@@ -22,4 +22,4 @@ ax.axvline(t_avg, color='k', linestyle='dashed', linewidth=1, label='Average: {:
 ax.axvline(t_avg*3, color='r', linestyle='dashed', linewidth=1, label='3*Average: {:.2f} ns'.format(3*t_avg))
 ax.set_xlabel('extrinsic time (ns)')
 ax.legend()
-plt.show()
+plt.savefig('benchmarks_analysis.png')
