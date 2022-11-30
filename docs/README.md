@@ -33,12 +33,12 @@ there's a linear input parameter `i`. This parameter `i` is set to range between
 number of board states and `MOVES_PER_POSITION`, and it is used in the generation of each move to be benchmarked. 
 This way, we guarantee that all moves are being benchmarked. There are however some known limitations with this 
 approach:
-- Some moves are repeated many times (when there's very few possible moves for some board state), which can 
+- Some moves are repeated many times (board states with very few possible moves), which can 
   potentially skew the results.
 - This strategy is not exhaustive, meaning that it does not cover every possible scenario. That means that there 
-  could always be some board state and some move that will take more execution time than we accounted for. However, 
-  it is practically impossible to evaluate every possible scenario, and we need some sort of compromise. The 
-  strategy could be improved by adding more board states to `POSITIONS`.
+  could always be some combination of a board state and a move that will take more execution time than we accounted 
+  for. However,  it is practically impossible to evaluate every possible scenario, and we need some sort of 
+  compromise. Our strategy could be potentially improved by adding more board states to `POSITIONS`.
 
 The benchmark was executed in an equivalent to Polkadot's [recommended reference hardware](https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#reference-hardware)
 with the following command:
