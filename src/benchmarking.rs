@@ -11,7 +11,7 @@ use frame_benchmarking::{account, benchmarks, vec, Vec};
 use frame_system::RawOrigin;
 use scale_info::prelude::{format, string::String};
 
-const MAX_MOVES_PER_POSITION: u32 = 52;
+const MOVES_PER_POSITION: u32 = 52;
 const INITIAL_BOARD: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 const POSITIONS: &[&str] = &[
 	"Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67",
@@ -154,11 +154,11 @@ fn generate_moves(board_fen: &str) -> Vec<String> {
 	all_moves.extend(queen_moves);
 	all_moves.extend(king_moves);
 
-	// we repeat moves until all_moves has MAX_MOVES_PER_POSITION elements
+	// we repeat moves until all_moves has MOVES_PER_POSITION elements
 	let all_moves_len = all_moves.len();
 	let mut repeat_moves: Vec<_> = Vec::new();
 	let mut i = 0;
-	while all_moves_len + repeat_moves.len() < MAX_MOVES_PER_POSITION as usize {
+	while all_moves_len + repeat_moves.len() < MOVES_PER_POSITION as usize {
 		repeat_moves.push(all_moves[i % all_moves_len].clone());
 		i += 1;
 	}
@@ -205,14 +205,14 @@ benchmarks! {
 	}
 
 	make_move {
-		let i in 0 .. ((POSITIONS.len() as u32 - 1) * MAX_MOVES_PER_POSITION) as u32;
+		let i in 0 .. ((POSITIONS.len() as u32 - 1) * MOVES_PER_POSITION) as u32;
 
-		let position_index = (i / MAX_MOVES_PER_POSITION) as usize;
+		let position_index = (i / MOVES_PER_POSITION) as usize;
 		let position_to_benchmark = POSITIONS[position_index];
 
 		let position_moves = generate_moves(position_to_benchmark);
 
-		let move_index = (i % MAX_MOVES_PER_POSITION) as usize;
+		let move_index = (i % MOVES_PER_POSITION) as usize;
 		let move_to_benchmark = &position_moves[move_index];
 
 		log::info!("i: {}, pos_index: {}, move_index:{}, move: {}, board: {}", i, position_index, move_index, move_to_benchmark, position_to_benchmark);
