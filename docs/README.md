@@ -77,17 +77,19 @@ linear regression, the minimal possible weight is `W_min = 32_180_000` and the m
 Since this is a linear slope, we extrapolate the average weight as `(W_min + W_max) / 2 = 
 50_133_104`.
 
-The Python script `analysis.py` was used to generate a histogram with all the observed execution times contained in 
-`benchmarks.json`. We can also see the average, as well as the average multiplied by 3:
+The Python script `analysis.py` was used to generate a histogram and a plot (`i` vs `execution time`) with all the
+samples contained in `benchmarks.json`. We can also see the average, as well as the average multiplied by 3:
 
-![](benchmarks_analysis.png)
+![](benchmarks_histogram.png)
 
-We can see that there's no samples to the right of the red dashed line, so we assume that we can multiply the average 
+![](benchmarks_plot.png)
+
+We can see that there's no samples beyond of the red dashed line, so we assume that we can multiply the average 
 weight by 3 and use it as a "safe" constant extrinsic weight for `make_move`. Even if the average is heavily skewed by 
-the repetition of moves on `generate_moves`, the histogram shows that the multiplication by 3 helps us find a safe 
+the repetition of moves on `generate_moves`, the plots show that the multiplication by 3 helps us find a safe 
 upper limit, regardless of whether this is a "true" average or not. 
 
-After applying the logic explained above to `weights.rs`, `make_move` looked like this:
+After applying the logic explained above to `weights.rs`, `make_move` looks like this:
 ```
 	// Storage: Chess Matches (r:1 w:1)
 	fn make_move() -> Weight {
