@@ -66,8 +66,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	// Storage: Chess Matches (r:1 w:1)
 	fn make_move() -> Weight {
-		Weight::from_ref_time(50_133_104 as u64)
-			.saturating_mul(3)
+		Weight::from_ref_time(50_133_104 * 3 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -97,8 +96,7 @@ impl WeightInfo for () {
 	}
 	// Storage: Chess Matches (r:1 w:1)
 	fn make_move() -> Weight {
-		Weight::from_ref_time(50_133_104 as u64)
-			.saturating_mul(3)
+		Weight::from_ref_time(50_133_104 * 3 as u64)
 			.saturating_add(RocksDbWeight::get().reads(1 as u64))
 			.saturating_add(RocksDbWeight::get().writes(1 as u64))
 	}
