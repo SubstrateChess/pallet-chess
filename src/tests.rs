@@ -95,7 +95,19 @@ fn make_move_works() {
 
 		// test InvalidMoveEncoding
 		assert_noop!(
-			Chess::make_move(RuntimeOrigin::signed(B), match_id, "123".into()),
+			Chess::make_move(RuntimeOrigin::signed(B), match_id, "1234".into()),
+			Error::<Test>::InvalidMoveEncoding
+		);
+
+		// test InvalidMoveEncoding
+		assert_noop!(
+			Chess::make_move(RuntimeOrigin::signed(B), match_id, "e1e2e3".into()),
+			Error::<Test>::InvalidMoveEncoding
+		);
+
+		// test InvalidMoveEncoding
+		assert_noop!(
+			Chess::make_move(RuntimeOrigin::signed(B), match_id, "1".into()),
 			Error::<Test>::InvalidMoveEncoding
 		);
 
