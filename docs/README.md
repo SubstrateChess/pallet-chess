@@ -74,7 +74,7 @@ The original weight generated into `weights.rs` looked like:
 Remember that we "tricked" Substrate's benchmarking mechanics, so it applied the linear regression while "believing" 
 that `i` was a real variable and arrived to `W = 32_180_000 + 28_771 * i` (ignoring storage r/w). According to this 
 linear regression, the minimal possible weight is `W_min = 32_180_000` and the maximum is  `W_max = 68_086_208`. 
-Since this is a linear slope, we extrapolate the average weight as `(W_min + W_max) / 2 = 
+Since this is a linear slope, we extrapolate the average weight as `W_avg = (W_min + W_max) / 2 = 
 50_133_104`.
 
 The Python script `analysis.py` was used to generate a histogram and a plot (`i` vs `execution time`) with all the
@@ -87,13 +87,15 @@ samples contained in `benchmarks.json`. We can also see the average, as well as 
 We can see that there's no samples beyond of the red dashed line, so we assume that we can multiply the average 
 weight by 3 and use it as a "safe" constant extrinsic weight for `make_move`. Even if the average is heavily skewed by 
 the repetition of moves on `generate_moves`, the plots show that the multiplication by 3 helps us find a safe 
-upper limit, regardless of whether this is a "true" average or not. 
+upper limit, regardless of whether this is a "true" average or not.
+
+So we will attribute `make_move` a constant weight of `W_mm = W_avg * 3 = 50_133_104 * 3 = 150_399_312`.
 
 After applying the logic explained above to `weights.rs`, `make_move` looks like this:
 ```
 	// Storage: Chess Matches (r:1 w:1)
 	fn make_move() -> Weight {
-		Weight::from_ref_time(50_133_104 * 3 as u64)
+		Weight::from_ref_time(150_399_312 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
