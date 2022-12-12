@@ -47,6 +47,8 @@ pub mod pallet {
 	pub struct Match<T: Config> {
 		pub challenger: T::AccountId,
 		pub opponent: T::AccountId,
+		// no need for BoundedVec, we only modify this internally (and safely)
+		// introducing an extra runtime constant would be overkill
 		pub board: Vec<u8>,
 		pub state: MatchState,
 		pub nonce: u128,
@@ -103,6 +105,8 @@ pub mod pallet {
 		NotYourTurn,
 		IllegalMove,
 	}
+
+	const MAX_MOVE_FEN_LENGTH: usize = 4;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -188,6 +192,8 @@ pub mod pallet {
 			move_fen: Vec<u8>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			ensure!(move_fen.len() == MAX_MOVE_FEN_LENGTH, Error::<T>::InvalidMoveEncoding);
 
 			let mut chess_match = match Self::chess_matches(match_id) {
 				Some(m) => m,
