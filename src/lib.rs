@@ -106,7 +106,7 @@ pub mod pallet {
 		IllegalMove,
 	}
 
-	const MAX_MOVE_FEN_LENGTH: usize = 4;
+	const MOVE_FEN_LENGTH: usize = 4;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -193,7 +193,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(move_fen.len() == MAX_MOVE_FEN_LENGTH, Error::<T>::InvalidMoveEncoding);
+			ensure!(move_fen.len() == MOVE_FEN_LENGTH, Error::<T>::InvalidMoveEncoding);
 
 			let mut chess_match = match Self::chess_matches(match_id) {
 				Some(m) => m,
