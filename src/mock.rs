@@ -52,6 +52,10 @@ impl system::Config for Test {
 impl pallet_chess::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = pallet_chess::weights::SubstrateWeight<Test>;
+	type BulletPeriod = ConstU64<10>;
+	type BlitzPeriod = ConstU64<50>;
+	type RapidPeriod = ConstU64<150>;
+	type DailyPeriod = ConstU64<14400>;
 }
 
 // Build genesis storage according to the mock runtime.

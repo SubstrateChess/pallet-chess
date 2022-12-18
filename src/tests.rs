@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Event, MatchState, NextMove};
+use crate::{mock::*, Error, Event, MatchState, NextMove, MatchStyle};
 use cozy_chess::Board;
 use frame_support::{assert_noop, assert_ok};
 
@@ -10,7 +10,7 @@ fn create_match_works() {
 	new_test_ext().execute_with(|| {
 		// todo: assert initial free balance of A
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 		let chess_match = Chess::chess_matches(match_id).unwrap();
@@ -30,7 +30,7 @@ fn abort_match_works() {
 	new_test_ext().execute_with(|| {
 		// todo: assert initial free balance of A
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
@@ -53,7 +53,7 @@ fn join_match_works() {
 	new_test_ext().execute_with(|| {
 		// todo: assert initial balance of A and B
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -70,7 +70,7 @@ fn make_move_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -134,7 +134,7 @@ fn make_move_works() {
 		assert_eq!(Chess::chess_matches(match_id), None);
 
 		// test MatchDrawn
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(1).unwrap();
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "c2c4".into()));
@@ -172,7 +172,7 @@ const BOARD_STATE: &str = "Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67";
 #[test]
 fn force_board_state_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));

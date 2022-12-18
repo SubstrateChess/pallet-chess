@@ -29,6 +29,14 @@ pub mod pallet {
 	};
 
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
+	pub enum MatchStyle {
+		Bullet, // 1 minute
+		Blitz,  // 5 minutes
+		Rapid,  // 15 minutes
+		Daily,  // 1 day
+	}
+
+	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
 	pub enum NextMove {
 		Whites,
 		Blacks,
@@ -52,6 +60,8 @@ pub mod pallet {
 		pub board: Vec<u8>,
 		pub state: MatchState,
 		pub nonce: u128,
+		pub style: MatchStyle,
+		pub last_move: T::BlockNumber,
 	}
 
 	#[pallet::pallet]
@@ -72,12 +82,22 @@ pub mod pallet {
 	#[pallet::getter(fn chess_match_id_from_nonce)]
 	pub(super) type MatchIdFromNonce<T: Config> = StorageMap<_, Twox64Concat, u128, T::Hash>;
 
-	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+
+		#[pallet::constant]
+		type BulletPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type BlitzPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type RapidPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type DailyPeriod: Get<Self::BlockNumber>;
 	}
 
 	#[pallet::event]
@@ -106,12 +126,64 @@ pub mod pallet {
 		IllegalMove,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// for every ongoing match, checks if the player defined by NextMove has run out of time
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let mut matches_to_finish = Vec::new();
+			for (m_id, m) in Matches::<T>::iter() {
+				match m.state {
+					MatchState::OnGoing(_) => {
+						// first move can delay longer
+						if m.last_move == 0u32.into() {
+							continue
+						}
+						let delta = now - m.last_move;
+						let finish = match m.style {
+							MatchStyle::Bullet => (delta > T::BulletPeriod::get()),
+							MatchStyle::Blitz => (delta > T::BlitzPeriod::get()),
+							MatchStyle::Rapid => (delta > T::RapidPeriod::get()),
+							MatchStyle::Daily => (delta > T::DailyPeriod::get()),
+						};
+						if finish {
+							matches_to_finish.push((m_id, m));
+						}
+					},
+					_ => continue,
+				}
+			}
+
+			for (m_id, m) in matches_to_finish {
+				let winner = match m.state {
+					MatchState::OnGoing(NextMove::Whites) => m.opponent,
+					MatchState::OnGoing(NextMove::Blacks) => m.challenger,
+					_ => continue,
+				};
+
+				Self::deposit_event(Event::MatchWon(m_id, winner, m.board.clone()));
+
+				// todo: winner gets both deposits
+
+				// match is over, clean up storage
+				<Matches<T>>::remove(m_id);
+				<MatchIdFromNonce<T>>::remove(m.nonce);
+			}
+
+			// todo: calculate proper weights
+			Weight::zero()
+		}
+	}
+
 	const MOVE_FEN_LENGTH: usize = 4;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(T::WeightInfo::create_match())]
-		pub fn create_match(origin: OriginFor<T>, opponent: T::AccountId) -> DispatchResult {
+		pub fn create_match(
+			origin: OriginFor<T>,
+			opponent: T::AccountId,
+			style: MatchStyle,
+		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
 
 			// todo: reserve deposit of challenger
@@ -123,6 +195,8 @@ pub mod pallet {
 				board: Self::init_board(),
 				state: MatchState::AwaitingOpponent,
 				nonce: nonce.clone(),
+				style,
+				last_move: 0u32.into(),
 			};
 
 			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
@@ -240,10 +314,13 @@ pub mod pallet {
 			};
 
 			chess_match.board = Self::encode_board(board_obj);
+			chess_match.last_move = <frame_system::Pallet<T>>::block_number();
 
 			Self::deposit_event(Event::MoveExecuted(match_id, who.clone(), move_fen));
 			if chess_match.state == MatchState::Won {
 				Self::deposit_event(Event::MatchWon(match_id, who, chess_match.board.clone()));
+
+				// todo: winner gets both deposits
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(match_id);
