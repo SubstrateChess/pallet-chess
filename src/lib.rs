@@ -62,6 +62,7 @@ pub mod pallet {
 		pub nonce: u128,
 		pub style: MatchStyle,
 		pub last_move: T::BlockNumber,
+		pub start: T::BlockNumber,
 	}
 
 	#[pallet::pallet]
@@ -130,30 +131,51 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// for every ongoing match, checks if the player defined by NextMove has run out of time
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let mut matches_to_finish = Vec::new();
+			let mut matches_win = Vec::new();
+			let mut matches_draw = Vec::new();
 			for (m_id, m) in Matches::<T>::iter() {
 				match m.state {
 					MatchState::OnGoing(_) => {
-						// first move can delay longer
+						// first move of the match can delay 100x longer
 						if m.last_move == 0u32.into() {
-							continue
-						}
-						let delta = now - m.last_move;
-						let finish = match m.style {
-							MatchStyle::Bullet => (delta > T::BulletPeriod::get()),
-							MatchStyle::Blitz => (delta > T::BlitzPeriod::get()),
-							MatchStyle::Rapid => (delta > T::RapidPeriod::get()),
-							MatchStyle::Daily => (delta > T::DailyPeriod::get()),
-						};
-						if finish {
-							matches_to_finish.push((m_id, m));
+							let diff = now - m.start;
+							let draw: bool = match m.style {
+								MatchStyle::Bullet => diff > T::BulletPeriod::get() * 100u32.into(),
+								MatchStyle::Blitz => diff > T::BlitzPeriod::get() * 100u32.into(),
+								MatchStyle::Rapid => diff > T::RapidPeriod::get() * 100u32.into(),
+								MatchStyle::Daily => diff > T::DailyPeriod::get() * 100u32.into(),
+							};
+							if draw {
+								matches_draw.push((m_id, m));
+							}
+						} else {
+							let diff = now - m.last_move;
+							let finish: bool = match m.style {
+								MatchStyle::Bullet => diff > T::BulletPeriod::get(),
+								MatchStyle::Blitz => diff > T::BlitzPeriod::get(),
+								MatchStyle::Rapid => diff > T::RapidPeriod::get(),
+								MatchStyle::Daily => diff > T::DailyPeriod::get(),
+							};
+							if finish {
+								matches_win.push((m_id, m));
+							}
 						}
 					},
 					_ => continue,
 				}
 			}
 
-			for (m_id, m) in matches_to_finish {
+			for (m_id, m) in matches_draw {
+				Self::deposit_event(Event::MatchDrawn(m_id, m.board.clone()));
+
+				// todo: return deposit to both players
+
+				// match is over, clean up storage
+				<Matches<T>>::remove(m_id);
+				<MatchIdFromNonce<T>>::remove(m.nonce);
+			}
+
+			for (m_id, m) in matches_win {
 				let winner = match m.state {
 					MatchState::OnGoing(NextMove::Whites) => m.opponent,
 					MatchState::OnGoing(NextMove::Blacks) => m.challenger,
@@ -197,6 +219,7 @@ pub mod pallet {
 				nonce: nonce.clone(),
 				style,
 				last_move: 0u32.into(),
+				start: 0u32.into(),
 			};
 
 			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
@@ -252,6 +275,7 @@ pub mod pallet {
 			// todo: reserve deposit of opponent
 
 			chess_match.state = MatchState::OnGoing(NextMove::Whites);
+			chess_match.start = <frame_system::Pallet<T>>::block_number();
 			<Matches<T>>::insert(match_id, chess_match);
 
 			Self::deposit_event(Event::MatchStarted(match_id));
@@ -327,6 +351,8 @@ pub mod pallet {
 				<MatchIdFromNonce<T>>::remove(chess_match.nonce);
 			} else if chess_match.state == MatchState::Drawn {
 				Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
+
+				// todo: return deposit to both players
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(match_id);

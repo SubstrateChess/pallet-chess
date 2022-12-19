@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Event, MatchState, NextMove, MatchStyle};
+use crate::{mock::*, Error, Event, MatchState, MatchStyle, NextMove};
 use cozy_chess::Board;
 use frame_support::{assert_noop, assert_ok};
 
