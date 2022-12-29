@@ -29,6 +29,14 @@ pub mod pallet {
 	};
 
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
+	pub enum MatchStyle {
+		Bullet, // 1 minute
+		Blitz,  // 5 minutes
+		Rapid,  // 15 minutes
+		Daily,  // 1 day
+	}
+
+	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
 	pub enum NextMove {
 		Whites,
 		Blacks,
@@ -52,6 +60,9 @@ pub mod pallet {
 		pub board: Vec<u8>,
 		pub state: MatchState,
 		pub nonce: u128,
+		pub style: MatchStyle,
+		pub last_move: T::BlockNumber,
+		pub start: T::BlockNumber,
 	}
 
 	#[pallet::pallet]
@@ -72,12 +83,22 @@ pub mod pallet {
 	#[pallet::getter(fn chess_match_id_from_nonce)]
 	pub(super) type MatchIdFromNonce<T: Config> = StorageMap<_, Twox64Concat, u128, T::Hash>;
 
-	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+
+		#[pallet::constant]
+		type BulletPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type BlitzPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type RapidPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type DailyPeriod: Get<Self::BlockNumber>;
 	}
 
 	#[pallet::event]
@@ -106,12 +127,85 @@ pub mod pallet {
 		IllegalMove,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// for every ongoing match, checks if the player defined by NextMove has run out of time
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			let mut matches_win = Vec::new();
+			let mut matches_draw = Vec::new();
+			for (m_id, m) in Matches::<T>::iter() {
+				match m.state {
+					MatchState::OnGoing(_) => {
+						// first move of the match can delay 100x longer
+						if m.last_move == 0u32.into() {
+							let diff = now - m.start;
+							let draw: bool = match m.style {
+								MatchStyle::Bullet => diff > T::BulletPeriod::get() * 100u32.into(),
+								MatchStyle::Blitz => diff > T::BlitzPeriod::get() * 100u32.into(),
+								MatchStyle::Rapid => diff > T::RapidPeriod::get() * 100u32.into(),
+								MatchStyle::Daily => diff > T::DailyPeriod::get() * 100u32.into(),
+							};
+							if draw {
+								matches_draw.push((m_id, m));
+							}
+						} else {
+							let diff = now - m.last_move;
+							let finish: bool = match m.style {
+								MatchStyle::Bullet => diff > T::BulletPeriod::get(),
+								MatchStyle::Blitz => diff > T::BlitzPeriod::get(),
+								MatchStyle::Rapid => diff > T::RapidPeriod::get(),
+								MatchStyle::Daily => diff > T::DailyPeriod::get(),
+							};
+							if finish {
+								matches_win.push((m_id, m));
+							}
+						}
+					},
+					_ => continue,
+				}
+			}
+
+			for (m_id, m) in matches_draw {
+				Self::deposit_event(Event::MatchDrawn(m_id, m.board.clone()));
+
+				// todo: return deposit to both players
+
+				// match is over, clean up storage
+				<Matches<T>>::remove(m_id);
+				<MatchIdFromNonce<T>>::remove(m.nonce);
+			}
+
+			for (m_id, m) in matches_win {
+				let winner = match m.state {
+					MatchState::OnGoing(NextMove::Whites) => m.opponent,
+					MatchState::OnGoing(NextMove::Blacks) => m.challenger,
+					_ => continue,
+				};
+
+				Self::deposit_event(Event::MatchWon(m_id, winner, m.board.clone()));
+
+				// todo: winner gets both deposits
+
+				// match is over, clean up storage
+				<Matches<T>>::remove(m_id);
+				<MatchIdFromNonce<T>>::remove(m.nonce);
+			}
+
+			// todo: calculate proper weights
+			Weight::zero()
+		}
+	}
+
 	const MOVE_FEN_LENGTH: usize = 4;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(T::WeightInfo::create_match())]
-		pub fn create_match(origin: OriginFor<T>, opponent: T::AccountId) -> DispatchResult {
+		pub fn create_match(
+			origin: OriginFor<T>,
+			opponent: T::AccountId,
+			style: MatchStyle,
+		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
 
 			// todo: reserve deposit of challenger
@@ -123,6 +217,9 @@ pub mod pallet {
 				board: Self::init_board(),
 				state: MatchState::AwaitingOpponent,
 				nonce: nonce.clone(),
+				style,
+				last_move: 0u32.into(),
+				start: 0u32.into(),
 			};
 
 			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
@@ -178,6 +275,7 @@ pub mod pallet {
 			// todo: reserve deposit of opponent
 
 			chess_match.state = MatchState::OnGoing(NextMove::Whites);
+			chess_match.start = <frame_system::Pallet<T>>::block_number();
 			<Matches<T>>::insert(match_id, chess_match);
 
 			Self::deposit_event(Event::MatchStarted(match_id));
@@ -240,16 +338,21 @@ pub mod pallet {
 			};
 
 			chess_match.board = Self::encode_board(board_obj);
+			chess_match.last_move = <frame_system::Pallet<T>>::block_number();
 
 			Self::deposit_event(Event::MoveExecuted(match_id, who.clone(), move_fen));
 			if chess_match.state == MatchState::Won {
 				Self::deposit_event(Event::MatchWon(match_id, who, chess_match.board.clone()));
+
+				// todo: winner gets both deposits
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(match_id);
 				<MatchIdFromNonce<T>>::remove(chess_match.nonce);
 			} else if chess_match.state == MatchState::Drawn {
 				Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
+
+				// todo: return deposit to both players
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(match_id);

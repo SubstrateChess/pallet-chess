@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Event, MatchState, NextMove};
+use crate::{mock::*, Error, Event, MatchState, MatchStyle, NextMove};
 use cozy_chess::Board;
 use frame_support::{assert_noop, assert_ok};
 
@@ -10,7 +10,7 @@ fn create_match_works() {
 	new_test_ext().execute_with(|| {
 		// todo: assert initial free balance of A
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 		let chess_match = Chess::chess_matches(match_id).unwrap();
@@ -30,7 +30,7 @@ fn abort_match_works() {
 	new_test_ext().execute_with(|| {
 		// todo: assert initial free balance of A
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
@@ -53,7 +53,7 @@ fn join_match_works() {
 	new_test_ext().execute_with(|| {
 		// todo: assert initial balance of A and B
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -70,7 +70,7 @@ fn make_move_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -134,7 +134,7 @@ fn make_move_works() {
 		assert_eq!(Chess::chess_matches(match_id), None);
 
 		// test MatchDrawn
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(1).unwrap();
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "c2c4".into()));
@@ -172,7 +172,7 @@ const BOARD_STATE: &str = "Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67";
 #[test]
 fn force_board_state_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B));
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -181,5 +181,54 @@ fn force_board_state_works() {
 
 		let chess_match = Chess::chess_matches(match_id).unwrap();
 		assert_eq!(chess_match.board, BOARD_STATE.as_bytes());
+	});
+}
+
+#[test]
+fn match_timer_first_move_works() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
+		run_to_block(BulletPeriod::get()*100 + 2);
+		System::assert_last_event(
+			Event::MatchDrawn {
+				0: match_id,
+				1: format!("{}", Board::default()).into(),
+			}
+			.into(),
+		);
+
+		assert_eq!(Chess::chess_matches(match_id), None);
+	});
+}
+
+#[test]
+fn match_timer_works() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Blitz));
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
+
+		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "e2e4".into()));
+
+		run_to_block(BlitzPeriod::get() + 2);
+		System::assert_last_event(
+			Event::MatchWon {
+				0: match_id,
+				1: A,
+				2: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".into(),
+			}
+			.into(),
+		);
+
+		assert_eq!(Chess::chess_matches(match_id), None);
+		
 	});
 }
