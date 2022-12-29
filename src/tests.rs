@@ -183,3 +183,52 @@ fn force_board_state_works() {
 		assert_eq!(chess_match.board, BOARD_STATE.as_bytes());
 	});
 }
+
+#[test]
+fn match_timer_first_move_works() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
+		run_to_block(BulletPeriod::get()*100 + 2);
+		System::assert_last_event(
+			Event::MatchDrawn {
+				0: match_id,
+				1: format!("{}", Board::default()).into(),
+			}
+			.into(),
+		);
+
+		assert_eq!(Chess::chess_matches(match_id), None);
+	});
+}
+
+#[test]
+fn match_timer_works() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		
+		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Blitz));
+		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
+
+		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "e2e4".into()));
+
+		run_to_block(BlitzPeriod::get() + 2);
+		System::assert_last_event(
+			Event::MatchWon {
+				0: match_id,
+				1: A,
+				2: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".into(),
+			}
+			.into(),
+		);
+
+		assert_eq!(Chess::chess_matches(match_id), None);
+		
+	});
+}
