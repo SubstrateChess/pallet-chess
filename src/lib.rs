@@ -20,13 +20,27 @@ pub use weights::*;
 pub mod pallet {
 	use crate::WeightInfo;
 	use cozy_chess::{Board, Color, GameStatus, Move};
-	use frame_support::{pallet_prelude::*, sp_runtime::traits::Hash};
+	use frame_support::{
+		pallet_prelude::{DispatchResult, *},
+		sp_runtime::{
+			traits::{AccountIdConversion, Hash, Zero},
+			FixedPointOperand, Saturating,
+		},
+		traits::{
+			fungibles::{Inspect, Transfer},
+			tokens::Balance,
+		},
+		PalletId,
+	};
 	use frame_system::pallet_prelude::*;
 	use scale_info::prelude::format;
 	use sp_std::{
 		str::{from_utf8, FromStr},
 		vec::Vec,
 	};
+
+	type AssetIdOf<T> =
+		<<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
 	pub enum MatchStyle {
@@ -63,6 +77,82 @@ pub mod pallet {
 		pub style: MatchStyle,
 		pub last_move: T::BlockNumber,
 		pub start: T::BlockNumber,
+		pub bet_asset_id: AssetIdOf<T>,
+		pub bet_amount: T::AssetBalance,
+	}
+
+	impl<T: Config> Match<T> {
+		fn challenger_bet(&self) -> DispatchResult {
+			// todo: replace with asset_exists (0.9.35)
+			if T::Assets::minimum_balance(self.bet_asset_id).is_zero() {
+				return Err(Error::<T>::BetDoesNotExist.into());
+			}
+
+			if self.bet_amount < T::Assets::minimum_balance(self.bet_asset_id) {
+				return Err(Error::<T>::BetTooLow.into());
+			}
+
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&self.challenger,
+				&T::pallet_account(),
+				self.bet_amount,
+				false,
+			)?;
+			Ok(())
+		}
+
+		fn opponent_bet(&self) -> DispatchResult {
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&self.opponent,
+				&T::pallet_account(),
+				self.bet_amount,
+				false,
+			)?;
+			Ok(())
+		}
+
+		fn abort_bet(&self) -> DispatchResult {
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&T::pallet_account(),
+				&self.challenger,
+				self.bet_amount,
+				false,
+			)?;
+			Ok(())
+		}
+
+		fn refund_bets(&self) -> DispatchResult {
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&T::pallet_account(),
+				&self.challenger,
+				self.bet_amount,
+				false,
+			)?;
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&T::pallet_account(),
+				&self.opponent,
+				self.bet_amount,
+				false,
+			)?;
+			Ok(())
+		}
+
+		fn win_bet(&self, winner: &T::AccountId) -> DispatchResult {
+			let win_amount = self.bet_amount.saturating_add(self.bet_amount);
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&T::pallet_account(),
+				winner,
+				win_amount,
+				false,
+			)?;
+			Ok(())
+		}
 	}
 
 	#[pallet::pallet]
@@ -85,8 +175,18 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
+
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type WeightInfo: WeightInfo;
+		type Assets: Inspect<Self::AccountId, Balance = Self::AssetBalance>
+			+ Transfer<Self::AccountId>;
+		type AssetBalance: Balance
+			+ FixedPointOperand
+			+ MaxEncodedLen
+			+ MaybeSerializeDeserialize
+			+ TypeInfo;
 
 		#[pallet::constant]
 		type BulletPeriod: Get<Self::BlockNumber>;
@@ -101,6 +201,16 @@ pub mod pallet {
 		type DailyPeriod: Get<Self::BlockNumber>;
 	}
 
+	pub trait ConfigHelper: Config {
+		fn pallet_account() -> Self::AccountId;
+	}
+
+	impl<T: Config> ConfigHelper for T {
+		fn pallet_account() -> T::AccountId {
+			Self::PalletId::get().into_account_truncating()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -110,6 +220,8 @@ pub mod pallet {
 		MoveExecuted(T::Hash, T::AccountId, Vec<u8>),
 		MatchWon(T::Hash, T::AccountId, Vec<u8>),
 		MatchDrawn(T::Hash, Vec<u8>),
+		MatchRefundError(T::Hash),
+		MatchAwardError(T::Hash, T::AccountId),
 	}
 
 	#[pallet::error]
@@ -125,6 +237,8 @@ pub mod pallet {
 		MatchAlreadyFinished,
 		NotYourTurn,
 		IllegalMove,
+		BetTooLow,
+		BetDoesNotExist,
 	}
 
 	#[pallet::hooks]
@@ -168,7 +282,11 @@ pub mod pallet {
 			for (m_id, m) in matches_draw {
 				Self::deposit_event(Event::MatchDrawn(m_id, m.board.clone()));
 
-				// todo: return deposit to both players
+				// refund deposit to both players
+				match m.refund_bets() {
+					Ok(()) => {},
+					Err(_) => Self::deposit_event(Event::MatchRefundError(m_id)),
+				}
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(m_id);
@@ -177,14 +295,18 @@ pub mod pallet {
 
 			for (m_id, m) in matches_win {
 				let winner = match m.state {
-					MatchState::OnGoing(NextMove::Whites) => m.opponent,
-					MatchState::OnGoing(NextMove::Blacks) => m.challenger,
+					MatchState::OnGoing(NextMove::Whites) => m.opponent.clone(),
+					MatchState::OnGoing(NextMove::Blacks) => m.challenger.clone(),
 					_ => continue,
 				};
 
-				Self::deposit_event(Event::MatchWon(m_id, winner, m.board.clone()));
+				Self::deposit_event(Event::MatchWon(m_id, winner.clone(), m.board.clone()));
 
-				// todo: winner gets both deposits
+				// winner gets both deposits
+				match m.win_bet(&winner) {
+					Ok(()) => {},
+					Err(_) => Self::deposit_event(Event::MatchAwardError(m_id, winner)),
+				}
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(m_id);
@@ -205,10 +327,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			opponent: T::AccountId,
 			style: MatchStyle,
+			bet_asset_id: AssetIdOf<T>,
+			bet_amount: T::AssetBalance,
 		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
 
-			// todo: reserve deposit of challenger
 			let nonce = <NextNonce<T>>::get();
 
 			let new_match: Match<T> = Match {
@@ -220,7 +343,11 @@ pub mod pallet {
 				style,
 				last_move: 0u32.into(),
 				start: 0u32.into(),
+				bet_asset_id,
+				bet_amount,
 			};
+
+			new_match.challenger_bet()?;
 
 			let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
 			<Matches<T>>::insert(match_id, new_match);
@@ -249,7 +376,7 @@ pub mod pallet {
 				return Err(Error::<T>::NotAwaitingOpponent.into());
 			}
 
-			// todo: release reserve deposit to challenger
+			chess_match.abort_bet()?;
 
 			<Matches<T>>::remove(match_id);
 			<MatchIdFromNonce<T>>::remove(chess_match.nonce);
@@ -272,7 +399,7 @@ pub mod pallet {
 				return Err(Error::<T>::NotMatchOpponent.into());
 			}
 
-			// todo: reserve deposit of opponent
+			chess_match.opponent_bet()?;
 
 			chess_match.state = MatchState::OnGoing(NextMove::Whites);
 			chess_match.start = <frame_system::Pallet<T>>::block_number();
@@ -342,9 +469,14 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MoveExecuted(match_id, who.clone(), move_fen));
 			if chess_match.state == MatchState::Won {
-				Self::deposit_event(Event::MatchWon(match_id, who, chess_match.board.clone()));
+				Self::deposit_event(Event::MatchWon(
+					match_id,
+					who.clone(),
+					chess_match.board.clone(),
+				));
 
-				// todo: winner gets both deposits
+				// winner gets both deposits
+				chess_match.win_bet(&who)?;
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(match_id);
@@ -352,7 +484,8 @@ pub mod pallet {
 			} else if chess_match.state == MatchState::Drawn {
 				Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
 
-				// todo: return deposit to both players
+				// return deposit to both players
+				chess_match.refund_bets()?;
 
 				// match is over, clean up storage
 				<Matches<T>>::remove(match_id);
