@@ -38,6 +38,18 @@ fn create_match_works() {
 			Error::<Test>::BetDoesNotExist
 		);
 
+		// assert InvalidOpponent error
+		assert_noop!(
+			Chess::create_match(
+				RuntimeOrigin::signed(A),
+				A,
+				MatchStyle::Bullet,
+				bet_asset_id,
+				bet_amount
+			),
+			Error::<Test>::InvalidOpponent
+		);
+
 		// assert successful create_match
 		let initial_balance_a = Assets::balance(bet_asset_id, A);
 
