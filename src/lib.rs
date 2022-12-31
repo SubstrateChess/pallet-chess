@@ -228,6 +228,7 @@ pub mod pallet {
 	pub enum Error<T> {
 		NonceOverflow,
 		NonExistentMatch,
+		InvalidOpponent,
 		NotMatchOpponent,
 		NotMatchChallenger,
 		InvalidBoardEncoding,
@@ -331,6 +332,10 @@ pub mod pallet {
 			bet_amount: T::AssetBalance,
 		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
+
+			if challenger == opponent {
+				return Err(Error::<T>::InvalidOpponent.into());
+			}
 
 			let nonce = <NextNonce<T>>::get();
 
