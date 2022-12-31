@@ -43,3 +43,9 @@ In order to create a match, Challenger chooses an Asset Id and an amount. During
 As soon as Opponent calls `join_match`, an equal deposit is made from their account.
 
 The winner of the match receives both deposits as reward. In case of draws, both deposits are returned to each player.
+
+### Extrinsic Weights
+
+Although conveniently able to compile to WASM, `cozy_chess` crate wasn't written with Substrate in mind. That means that there is no guarantee that its execution will be linear. This has direct implications on how the extrinsic weights are calculated for this pallet.
+
+The [`docs`](docs/) directory has a detailed description on the strategy used for benchmarking the extrinsic weights.
