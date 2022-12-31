@@ -8,9 +8,46 @@ const B: u64 = 2;
 #[test]
 fn create_match_works() {
 	new_test_ext().execute_with(|| {
-		// todo: assert initial free balance of A
+		let bet_asset_id = AssetId::get();
+		let bet_amount_low = AssetMinBalance::get() / 2;
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		// assert BetTooLow error
+		assert_noop!(
+			Chess::create_match(
+				RuntimeOrigin::signed(A),
+				B,
+				MatchStyle::Bullet,
+				bet_asset_id,
+				bet_amount_low
+			),
+			Error::<Test>::BetTooLow
+		);
+
+		let bet_amount = AssetMinBalance::get() * 2;
+		let bet_asset_id_noop = AssetId::get() + 1;
+
+		// assert BetDoesNotExist error
+		assert_noop!(
+			Chess::create_match(
+				RuntimeOrigin::signed(A),
+				B,
+				MatchStyle::Bullet,
+				bet_asset_id_noop,
+				bet_amount
+			),
+			Error::<Test>::BetDoesNotExist
+		);
+
+		// assert successful create_match
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
 
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 		let chess_match = Chess::chess_matches(match_id).unwrap();
@@ -21,16 +58,26 @@ fn create_match_works() {
 		assert_eq!(chess_match.state, MatchState::AwaitingOpponent);
 		assert_eq!(chess_match.nonce, 0);
 
-		// todo: assert final free balance of A
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		assert_eq!(final_balance_a, initial_balance_a - bet_amount);
 	});
 }
 
 #[test]
 fn abort_match_works() {
 	new_test_ext().execute_with(|| {
-		// todo: assert initial free balance of A
+		let bet_asset_id = AssetId::get();
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+		let bet_amount = AssetMinBalance::get() * 2;
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
 
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
@@ -44,16 +91,29 @@ fn abort_match_works() {
 		assert_eq!(Chess::chess_matches(match_id), None);
 		assert_eq!(Chess::chess_match_id_from_nonce(0), None);
 
-		// todo: assert final free balance of A
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		assert_eq!(final_balance_a, initial_balance_a);
 	});
 }
 
 #[test]
 fn join_match_works() {
 	new_test_ext().execute_with(|| {
-		// todo: assert initial balance of A and B
+		let bet_asset_id = AssetId::get();
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+		let initial_balance_b = Assets::balance(bet_asset_id, B);
+
+		let bet_amount = AssetMinBalance::get() * 2;
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
+
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -61,7 +121,10 @@ fn join_match_works() {
 		let chess_match = Chess::chess_matches(match_id).unwrap();
 		assert_eq!(chess_match.state, MatchState::OnGoing(NextMove::Whites));
 
-		// todo: assert final balance of A and B
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		let final_balance_b = Assets::balance(bet_asset_id, B);
+		assert_eq!(final_balance_a, initial_balance_a - bet_amount);
+		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
 	});
 }
 
@@ -70,7 +133,21 @@ fn make_move_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let bet_asset_id = AssetId::get();
+
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+		let initial_balance_b = Assets::balance(bet_asset_id, B);
+
+		let bet_amount = AssetMinBalance::get() * 2;
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
+
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -123,7 +200,7 @@ fn make_move_works() {
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(B), match_id, "d8f6".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "d4c6".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(B), match_id, "f6f2".into()));
-		System::assert_last_event(
+		System::assert_has_event(
 			Event::MatchWon {
 				0: match_id,
 				1: B,
@@ -133,10 +210,28 @@ fn make_move_works() {
 		);
 		assert_eq!(Chess::chess_matches(match_id), None);
 
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		let final_balance_b = Assets::balance(bet_asset_id, B);
+		assert_eq!(final_balance_a, initial_balance_a - bet_amount);
+		assert_eq!(final_balance_b, initial_balance_b + bet_amount);
+
+		// --------------------------------------
 		// test MatchDrawn
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+		let initial_balance_b = Assets::balance(bet_asset_id, B);
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
+
 		let match_id = Chess::chess_match_id_from_nonce(1).unwrap();
+
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
+
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "c2c4".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(B), match_id, "h7h5".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "h2h4".into()));
@@ -156,7 +251,7 @@ fn make_move_works() {
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "b8c8".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(B), match_id, "f7g6".into()));
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "c8e6".into()));
-		System::assert_last_event(
+		System::assert_has_event(
 			Event::MatchDrawn {
 				0: match_id,
 				1: "5bnr/4p1pq/4Qpkr/7p/2P4P/8/PP1PPPP1/RNB1KBNR b KQ - 2 10".into(),
@@ -164,6 +259,11 @@ fn make_move_works() {
 			.into(),
 		);
 		assert_eq!(Chess::chess_matches(match_id), None);
+
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		let final_balance_b = Assets::balance(bet_asset_id, B);
+		assert_eq!(final_balance_a, initial_balance_a);
+		assert_eq!(final_balance_b, initial_balance_b);
 	});
 }
 
@@ -172,7 +272,17 @@ const BOARD_STATE: &str = "Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67";
 #[test]
 fn force_board_state_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let bet_asset_id = AssetId::get();
+		let bet_amount = AssetMinBalance::get() * 2;
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
+
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -189,20 +299,34 @@ fn match_timer_first_move_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
 
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Bullet));
+		let bet_asset_id = AssetId::get();
+		let bet_amount = AssetMinBalance::get() * 2;
+
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+		let initial_balance_b = Assets::balance(bet_asset_id, B);
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
+
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
-		run_to_block(BulletPeriod::get()*100 + 2);
-		System::assert_last_event(
-			Event::MatchDrawn {
-				0: match_id,
-				1: format!("{}", Board::default()).into(),
-			}
-			.into(),
+		run_to_block(BulletPeriod::get() * 100 + 2);
+		System::assert_has_event(
+			Event::MatchDrawn { 0: match_id, 1: format!("{}", Board::default()).into() }.into(),
 		);
 
 		assert_eq!(Chess::chess_matches(match_id), None);
+
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		let final_balance_b = Assets::balance(bet_asset_id, B);
+		assert_eq!(final_balance_a, initial_balance_a);
+		assert_eq!(final_balance_b, initial_balance_b);
 	});
 }
 
@@ -210,8 +334,21 @@ fn match_timer_first_move_works() {
 fn match_timer_works() {
 	new_test_ext().execute_with(|| {
 		System::set_block_number(1);
-		
-		assert_ok!(Chess::create_match(RuntimeOrigin::signed(A), B, MatchStyle::Blitz));
+
+		let bet_asset_id = AssetId::get();
+		let bet_amount = AssetMinBalance::get() * 2;
+
+		let initial_balance_a = Assets::balance(bet_asset_id, A);
+		let initial_balance_b = Assets::balance(bet_asset_id, B);
+
+		assert_ok!(Chess::create_match(
+			RuntimeOrigin::signed(A),
+			B,
+			MatchStyle::Bullet,
+			bet_asset_id,
+			bet_amount
+		));
+
 		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
 
 		assert_ok!(Chess::join_match(RuntimeOrigin::signed(B), match_id));
@@ -219,7 +356,7 @@ fn match_timer_works() {
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "e2e4".into()));
 
 		run_to_block(BlitzPeriod::get() + 2);
-		System::assert_last_event(
+		System::assert_has_event(
 			Event::MatchWon {
 				0: match_id,
 				1: A,
@@ -229,6 +366,10 @@ fn match_timer_works() {
 		);
 
 		assert_eq!(Chess::chess_matches(match_id), None);
-		
+
+		let final_balance_a = Assets::balance(bet_asset_id, A);
+		let final_balance_b = Assets::balance(bet_asset_id, B);
+		assert_eq!(final_balance_a, initial_balance_a + bet_amount);
+		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
 	});
 }
