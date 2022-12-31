@@ -4,7 +4,7 @@
 
 This pallet provides a way to play chess on-chain. It benefits from [`cozy-chess`](https://crates.io/crates/cozy-chess) and its ability to compile to WASM out-of-the-box.
 
-The chess board is represented on-chain as a [*Forsyth–Edwards Notation* (FEN)](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation) string, as well as moves.
+The chess board is represented on-chain as a [*Forsyth–Edwards Notation* (FEN)](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation) string, as well as the moves.
 
 ### Players
 
@@ -42,7 +42,7 @@ In order to create a match, Challenger chooses an Asset Id and an amount. During
 
 As soon as Opponent calls `join_match`, an equal deposit is made from their account.
 
-The winner of the match receives both deposits as reward. In case of draws, both deposits are returned to each player.
+The winner of the match receives both deposits as reward. In case of draws, both players get their deposits back.
 
 ### Extrinsic Weights
 
