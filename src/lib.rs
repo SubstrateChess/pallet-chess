@@ -23,7 +23,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, *},
 		sp_runtime::{
-			traits::{AccountIdConversion, Hash, Zero},
+			traits::{AccountIdConversion, Hash},
 			FixedPointOperand, Saturating,
 		},
 		traits::{
@@ -83,8 +83,7 @@ pub mod pallet {
 
 	impl<T: Config> Match<T> {
 		fn challenger_bet(&self) -> DispatchResult {
-			// todo: replace with asset_exists (0.9.35)
-			if T::Assets::minimum_balance(self.bet_asset_id).is_zero() {
+			if !T::Assets::asset_exists(self.bet_asset_id) {
 				return Err(Error::<T>::BetDoesNotExist.into());
 			}
 
@@ -323,6 +322,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create_match())]
 		pub fn create_match(
 			origin: OriginFor<T>,
@@ -364,6 +364,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::abort_match())]
 		pub fn abort_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -391,6 +392,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::join_match())]
 		pub fn join_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -415,6 +417,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::make_move())]
 		pub fn make_move(
 			origin: OriginFor<T>,

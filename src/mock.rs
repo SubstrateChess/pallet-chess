@@ -1,7 +1,7 @@
 use crate::{self as pallet_chess};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, OnFinalize, OnInitialize},
+	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, OnFinalize, OnInitialize, AsEnsureOriginWithArg},
 	PalletId,
 };
 use frame_system as system;
@@ -91,7 +91,9 @@ impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = u64;
 	type AssetId = u32;
+	type AssetIdParameter = u32;
 	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type AssetDeposit = ConstU64<1>;
 	type AssetAccountDeposit = ConstU64<10>;
@@ -102,6 +104,7 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type WeightInfo = ();
 	type Extra = ();
+	type RemoveItemsLimit = ConstU32<5>;
 }
 
 frame_support::parameter_types! {
