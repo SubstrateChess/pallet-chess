@@ -1,8 +1,8 @@
-# ♔♕♗♘♖ Substrate Chess ♜♞♝♛♚
+# ♜♞♝♛♚ Substrate Chess ♔♕♗♘♖
 
 ## Overview
 
-This pallet provides a way to play chess on-chain. It benefits from [`cozy-chess`](https://crates.io/crates/cozy-chess) and its ability to compile to WASM out-of-the-box.
+This pallet provides a way to play on-chain chess. It benefits from [`cozy-chess`](https://crates.io/crates/cozy-chess) and its ability to compile to WASM out-of-the-box (`no_std` compatible).
 
 The chess board is represented on-chain as a [*Forsyth–Edwards Notation* (FEN)](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation) string, as well as the moves.
 
@@ -20,6 +20,8 @@ When Challenger calls `create_match`, they establish the following parameters:
 - Bet Asset Id
 - Bet Amount
 
+A Match Id is calculated by hashing the tuple `(challenger, opponent, nonce)`, where the `nonce` is incremented for every new match created.
+
 #### Match Style
 
 Match styles define how much time each player has to make their move. Time is measured in blocks, and each style is defined as a `Config` type.
@@ -36,7 +38,7 @@ The first move of the match is the only exception (right after Opponent calls `j
 
 #### Match Bets
 
-This pallet is loosely coupled with FRAME's `pallet-assets` (or any other pallet that implements `Inspect` + `Transfer` from `frame_support::traits::fungibles`).
+This pallet is loosely coupled with FRAME's `pallet-assets` (or any other pallet that implements `Inspect` + `Transfer` traits from `frame_support::traits::fungibles`).
 
 In order to create a match, Challenger chooses an Asset Id and an amount. During the execution of `create_match`, a deposit of such asset amount is made from their account.
 
