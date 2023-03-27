@@ -20,7 +20,7 @@ pub const INCENTIVE_SHARE: u8 = 10; // TODO configure value
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::{WeightInfo, INCENTIVE_SHARE};
+	use crate::WeightInfo;
 	use cozy_chess::{Board, Color, GameStatus, Move};
 	use frame_support::{
 		pallet_prelude::{DispatchResult, *},
@@ -155,9 +155,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn clear_expired_bet(&self, winner: &T::AccountId, third_party: &T::AccountId) -> DispatchResult {
+		fn clear_abandoned_bet(&self, winner: &T::AccountId, third_party: &T::AccountId) -> DispatchResult {
 			let win_amount = self.bet_amount.saturating_add(self.bet_amount);
-			let incentive = Percent::from_percent(INCENTIVE_SHARE) * win_amount;
+			let incentive = Percent::from_percent(T::IncentiveShare::get()) * win_amount;
 			let the_rest = win_amount - incentive;
 			T::Assets::transfer(
 				self.bet_asset_id,
@@ -223,7 +223,7 @@ pub mod pallet {
 		type DailyPeriod: Get<Self::BlockNumber>;
 
 		#[pallet::constant]
-		type IncentivePeriod: Get<Self::BlockNumber>;
+		type IncentiveShare: Get<u8>;
 	}
 
 	pub trait ConfigHelper: Config {
@@ -267,7 +267,7 @@ pub mod pallet {
 		BetTooLow,
 		BetDoesNotExist,
 		MatchNotOnGoing,
-		MatchNotExpired,
+		MatchNotAbandoned,
 	}
 
 	#[pallet::hooks]
@@ -537,7 +537,7 @@ pub mod pallet {
 
 		#[pallet::call_index(4)]
 		#[pallet::weight(1000_000)] // TODO weights
-		pub fn clear_expired_match(
+		pub fn clear_abandoned_match(
 			origin: OriginFor<T>,
 			match_id: T::Hash
 		) -> DispatchResult {
@@ -555,14 +555,14 @@ pub mod pallet {
 			
 			let now = <frame_system::Pallet<T>>::block_number();
 			let diff = now - chess_match.last_move;
-			let expired: bool = match chess_match.style {
-				MatchStyle::Bullet => diff > T::BulletPeriod::get(),
-				MatchStyle::Blitz => diff > T::BlitzPeriod::get(),
-				MatchStyle::Rapid => diff > T::RapidPeriod::get(),
-				MatchStyle::Daily => diff > T::DailyPeriod::get(),
+			let abandoned: bool = match chess_match.style {
+				MatchStyle::Bullet => diff > T::BulletPeriod::get() * 10u32.into(),
+				MatchStyle::Blitz => diff > T::BlitzPeriod::get() * 10u32.into(),
+				MatchStyle::Rapid => diff > T::RapidPeriod::get() * 10u32.into(),
+				MatchStyle::Daily => diff > T::DailyPeriod::get() * 10u32.into(),
 			};
 
-			ensure!(expired, Error::<T>::MatchNotExpired);
+			ensure!(abandoned, Error::<T>::MatchNotAbandoned);
 
 			let winner = match chess_match.state {
 				MatchState::OnGoing(NextMove::Whites) => chess_match.opponent.clone(),
@@ -571,14 +571,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::MatchWon(match_id, winner.clone(), chess_match.board.clone()));
 
-			let time_since_expiry = match chess_match.style {
-				MatchStyle::Bullet => now - (chess_match.last_move + T::BulletPeriod::get()),
-				MatchStyle::Blitz => now - (chess_match.last_move + T::BlitzPeriod::get()),
-				MatchStyle::Rapid => now - (chess_match.last_move + T::RapidPeriod::get()),
-				MatchStyle::Daily => now - (chess_match.last_move + T::DailyPeriod::get()),
-			};
-
-			if (who == chess_match.challenger) | (who == chess_match.opponent) | (time_since_expiry <= T::IncentivePeriod::get()) {
+			if (who == chess_match.challenger) | (who == chess_match.opponent) | !abandoned {
 				// winner gets both deposits
 				match chess_match.win_bet(&winner) {
 					Ok(()) => {},
@@ -587,7 +580,7 @@ pub mod pallet {
 			} else {
 				// who cleared the match after incentive period gets the incentive, 
 				// and the winner gets both deposits minus the incentive share
-				match chess_match.clear_expired_bet(&winner, &who) {
+				match chess_match.clear_abandoned_bet(&winner, &who) {
 					Ok(()) => {},
 					Err(_) => Self::deposit_event(Event::MatchClearanceError(match_id, winner, who)),
 				}
