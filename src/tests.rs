@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Event, MatchState, MatchStyle, NextMove, Config};
+use crate::{mock::*, Config, Error, Event, MatchState, MatchStyle, NextMove};
 use cozy_chess::Board;
 use frame_support::{assert_noop, assert_ok};
 
@@ -330,13 +330,12 @@ fn claim_victory_works() {
 		assert_ok!(Chess::make_move(RuntimeOrigin::signed(A), match_id, "e2e4".into()));
 
 		// advance the block number to the point where B's time-to-move is expired
-		System::set_block_number(System::block_number() + <Test as Config>::BulletPeriod::get() + 1);
+		System::set_block_number(
+			System::block_number() + <Test as Config>::BulletPeriod::get() + 1,
+		);
 
 		// A claims victory
-		assert_ok!(Chess::clear_abandoned_match(
-			RuntimeOrigin::signed(A),
-			match_id
-		));
+		assert_ok!(Chess::clear_abandoned_match(RuntimeOrigin::signed(A), match_id));
 
 		System::assert_has_event(
 			Event::MatchWon {
@@ -354,7 +353,6 @@ fn claim_victory_works() {
 		let final_balance_b = Assets::balance(bet_asset_id, B);
 		assert_eq!(final_balance_a, initial_balance_a + bet_amount);
 		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
-
 	});
 }
 
@@ -386,13 +384,12 @@ fn janitor_incentive_works_with_big_bet() {
 
 		// advance the block number to the point where B's time-to-move is expired
 		// and A's time to claim victory is also expired
-		System::set_block_number(System::block_number() + <Test as Config>::BulletPeriod::get()*10 + 1);
+		System::set_block_number(
+			System::block_number() + <Test as Config>::BulletPeriod::get() * 10 + 1,
+		);
 
 		// C cleans abandoned match
-		assert_ok!(Chess::clear_abandoned_match(
-			RuntimeOrigin::signed(C),
-			match_id
-		));
+		assert_ok!(Chess::clear_abandoned_match(RuntimeOrigin::signed(C), match_id));
 
 		System::assert_has_event(
 			Event::MatchWon {
@@ -400,7 +397,7 @@ fn janitor_incentive_works_with_big_bet() {
 				1: A,
 				2: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".into(),
 			}
-				.into(),
+			.into(),
 		);
 
 		assert_eq!(Chess::chess_matches(match_id), None);
@@ -412,7 +409,6 @@ fn janitor_incentive_works_with_big_bet() {
 		assert_eq!(final_balance_a, initial_balance_a - bet_amount + actual_prize);
 		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
 		assert_eq!(final_balance_c, initial_balance_c + janitor_incentive);
-
 	});
 }
 
@@ -444,13 +440,12 @@ fn janitor_incentive_works_with_small_bet() {
 
 		// advance the block number to the point where B's time-to-move is expired
 		// and A's time to claim victory is also expired
-		System::set_block_number(System::block_number() + <Test as Config>::BulletPeriod::get()*10 + 1);
+		System::set_block_number(
+			System::block_number() + <Test as Config>::BulletPeriod::get() * 10 + 1,
+		);
 
 		// C cleans abandoned match
-		assert_ok!(Chess::clear_abandoned_match(
-			RuntimeOrigin::signed(C),
-			match_id
-		));
+		assert_ok!(Chess::clear_abandoned_match(RuntimeOrigin::signed(C), match_id));
 
 		System::assert_has_event(
 			Event::MatchWon {
@@ -458,7 +453,7 @@ fn janitor_incentive_works_with_small_bet() {
 				1: A,
 				2: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".into(),
 			}
-				.into(),
+			.into(),
 		);
 
 		assert_eq!(Chess::chess_matches(match_id), None);
@@ -470,6 +465,5 @@ fn janitor_incentive_works_with_small_bet() {
 		assert_eq!(final_balance_a, initial_balance_a - bet_amount);
 		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
 		assert_eq!(final_balance_c, initial_balance_c + janitor_incentive);
-
 	});
 }

@@ -1,7 +1,7 @@
 use crate::{self as pallet_chess};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, AsEnsureOriginWithArg},
+	traits::{AsEnsureOriginWithArg, ConstU16, ConstU32, ConstU64, GenesisBuild},
 	PalletId,
 };
 use frame_system as system;

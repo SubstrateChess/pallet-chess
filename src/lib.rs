@@ -43,7 +43,8 @@ pub mod pallet {
 
 	type AssetIdOf<T> =
 		<<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
-	type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+	type BalanceOf<T> =
+		<<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
 	pub enum MatchStyle {
@@ -156,7 +157,11 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn clear_abandoned_bet(&self, winner: &T::AccountId, janitor: &T::AccountId) -> DispatchResult {
+		fn clear_abandoned_bet(
+			&self,
+			winner: &T::AccountId,
+			janitor: &T::AccountId,
+		) -> DispatchResult {
 			let (janitor_incentive, actual_prize) = self.janitor_incentive();
 			T::Assets::transfer(
 				self.bet_asset_id,
@@ -177,10 +182,13 @@ pub mod pallet {
 
 		pub fn janitor_incentive(&self) -> (BalanceOf<T>, BalanceOf<T>) {
 			let winner_prize = self.bet_amount.saturating_add(self.bet_amount);
-			let (janitor_incentive, actual_prize) = match Percent::from_percent(T::IncentiveShare::get()) * winner_prize {
-				i if i >= T::Assets::minimum_balance(self.bet_asset_id) => (i, winner_prize - i),
-				_ => (winner_prize, 0u32.into()), // if the bet is too small, we just give the whole prize to the janitor
-			};
+			let (janitor_incentive, actual_prize) =
+				match Percent::from_percent(T::IncentiveShare::get()) * winner_prize {
+					i if i >= T::Assets::minimum_balance(self.bet_asset_id) => {
+						(i, winner_prize - i)
+					},
+					_ => (winner_prize, 0u32.into()), // if the bet is too small, we just give the whole prize to the janitor
+				};
 			(janitor_incentive, actual_prize)
 		}
 	}
@@ -469,10 +477,7 @@ pub mod pallet {
 
 		#[pallet::call_index(4)]
 		#[pallet::weight(1000_000)] // TODO weights
-		pub fn clear_abandoned_match(
-			origin: OriginFor<T>,
-			match_id: T::Hash
-		) -> DispatchResult {
+		pub fn clear_abandoned_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let chess_match = match Self::chess_matches(match_id) {
 				Some(m) => m,
@@ -480,11 +485,11 @@ pub mod pallet {
 			};
 
 			ensure!(
-				(chess_match.state == MatchState::OnGoing(NextMove::Whites)) | 
-				(chess_match.state == MatchState::OnGoing(NextMove::Blacks)), 
+				(chess_match.state == MatchState::OnGoing(NextMove::Whites))
+					| (chess_match.state == MatchState::OnGoing(NextMove::Blacks)),
 				Error::<T>::MatchNotOnGoing
 			);
-			
+
 			let now = <frame_system::Pallet<T>>::block_number();
 			let diff = now - chess_match.last_move;
 
@@ -502,7 +507,11 @@ pub mod pallet {
 				_ => chess_match.challenger.clone(),
 			};
 
-			Self::deposit_event(Event::MatchWon(match_id, winner.clone(), chess_match.board.clone()));
+			Self::deposit_event(Event::MatchWon(
+				match_id,
+				winner.clone(),
+				chess_match.board.clone(),
+			));
 
 			let abandoned: bool = match chess_match.style {
 				MatchStyle::Bullet => diff > T::BulletPeriod::get() * 10u32.into(),
@@ -518,11 +527,13 @@ pub mod pallet {
 					Err(_) => Self::deposit_event(Event::MatchAwardError(match_id, winner)),
 				}
 			} else {
-				// who cleared the match after match is abandoned gets the incentive, 
+				// who cleared the match after match is abandoned gets the incentive,
 				// and the winner gets both deposits minus the incentive share
 				match chess_match.clear_abandoned_bet(&winner, &who) {
 					Ok(()) => {},
-					Err(_) => Self::deposit_event(Event::MatchClearanceError(match_id, winner, who)),
+					Err(_) => {
+						Self::deposit_event(Event::MatchClearanceError(match_id, winner, who))
+					},
 				}
 			}
 
