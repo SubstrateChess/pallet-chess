@@ -109,12 +109,20 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = ConstU32<5>;
 }
 
+pub const ASSET_ID: u32 = 200u32;
+pub const ASSET_MIN_BALANCE: u64 = 1_000u64;
+
 frame_support::parameter_types! {
-	pub const AssetId: u32 = 200u32;
-	pub const AssetMinBalance: u64 = 1_000u64;
+	pub const AssetId: u32 = ASSET_ID;
+	pub const AssetMinBalance: u64 = ASSET_MIN_BALANCE;
 }
 
+pub const ALICE: u64 = 1;
+pub const BOB: u64 = 2;
+pub const CHARLIE: u64 = 3;
+
 // Build genesis storage according to the mock runtime.
+#[allow(dead_code)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut storage = system::GenesisConfig::default().build_storage::<Test>().unwrap();
 	let asset_id = AssetId::get();

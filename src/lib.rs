@@ -41,9 +41,9 @@ pub mod pallet {
 		vec::Vec,
 	};
 
-	type AssetIdOf<T> =
+	pub type AssetIdOf<T> =
 		<<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
-	type BalanceOf<T> =
+	pub type BalanceOf<T> =
 		<<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]

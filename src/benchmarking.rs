@@ -7,9 +7,13 @@ use log;
 
 #[allow(unused)]
 use crate::Pallet as Chess;
-use frame_benchmarking::{account, benchmarks, vec, Vec};
-use frame_system::RawOrigin;
+//use crate::mock::*;
+use frame_benchmarking::{benchmarks, vec, Vec};
+use frame_system::{RawOrigin, Pallet as System};
+use pallet_assets::Pallet as Assets;
 use scale_info::prelude::{format, string::String};
+use sp_core::Get;
+use sp_runtime::SaturatedConversion;
 
 const MOVES_PER_POSITION: u32 = 52;
 const INITIAL_BOARD: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -167,11 +171,32 @@ fn generate_moves(board_fen: &str) -> Vec<String> {
 	all_moves
 }
 
+pub const ALICE: u32 = 1;
+pub const BOB: u32 = 2;
+pub const CHARLIE: u32 = 3;
+
+pub const ASSET_ID: u32 = 200u32;
+pub const ASSET_MIN_BALANCE: u64 = 1_000u64;
+
 benchmarks! {
+	where_clause {
+		where
+			AssetIdOf<T>: From<u32>,
+			BalanceOf<T>: From<u64>,
+			T::AssetBalance: From<u64>,
+			T::AccountId: From<u32>,
+			T::BlockNumber: From<u64>,
+			T: pallet_assets::Config,
+			<T as pallet_assets::Config>::AssetId: From<u32>,
+			<T as pallet_assets::Config>::Balance: From<u64>,
+	}
+
 	create_match {
-		let challenger: T::AccountId = account("Alice", 0, 0);
-		let opponent: T::AccountId = account("Bob", 0, 1);
-	}: _(RawOrigin::Signed(challenger.clone()), opponent.clone())
+		let challenger: T::AccountId = ALICE.into();
+		let opponent: T::AccountId = BOB.into();
+		let bet_asset_id = ASSET_ID;
+		let bet_amount = ASSET_MIN_BALANCE * 10;
+	}: _(RawOrigin::Signed(challenger.clone()), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into())
 	verify {
 		let match_id = Chess::<T>::chess_match_id_from_nonce(0).unwrap();
 		let chess_match = Chess::<T>::chess_matches(match_id).unwrap();
@@ -183,9 +208,11 @@ benchmarks! {
 	}
 
 	abort_match {
-		let challenger: T::AccountId = account("Alice", 0, 0);
-		let opponent: T::AccountId = account("Bob", 0, 1);
-		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone()).unwrap();
+		let challenger: T::AccountId = ALICE.into();
+		let opponent: T::AccountId = BOB.into();
+		let bet_asset_id = ASSET_ID;
+		let bet_amount = ASSET_MIN_BALANCE * 10;
+		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into()).unwrap();
 		let match_id = Chess::<T>::chess_match_id_from_nonce(0).unwrap();
 	}: _(RawOrigin::Signed(challenger), match_id)
 	verify {
@@ -194,9 +221,11 @@ benchmarks! {
 	}
 
 	join_match {
-		let challenger: T::AccountId = account("Alice", 0, 0);
-		let opponent: T::AccountId = account("Bob", 0, 1);
-		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone()).unwrap();
+		let challenger: T::AccountId = ALICE.into();
+		let opponent: T::AccountId = BOB.into();
+		let bet_asset_id = ASSET_ID;
+		let bet_amount = ASSET_MIN_BALANCE * 10;
+		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into()).unwrap();
 		let match_id = Chess::<T>::chess_match_id_from_nonce(0).unwrap();
 	}: _(RawOrigin::Signed(opponent), match_id)
 	verify {
@@ -217,11 +246,14 @@ benchmarks! {
 
 		log::info!("i: {}, pos_index: {}, move_index:{}, move: {}, board: {}", i, position_index, move_index, move_to_benchmark, position_to_benchmark);
 
-		let challenger: T::AccountId = account("Alice", 0, 0);
-		let opponent: T::AccountId = account("Bob", 0, 1);
+		let challenger: T::AccountId = ALICE.into();
+		let opponent: T::AccountId = BOB.into();
+		let bet_asset_id = ASSET_ID;
+		let bet_amount = ASSET_MIN_BALANCE * 10;
 
-		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone()).unwrap();
+		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into()).unwrap();
 		let match_id = Chess::<T>::chess_match_id_from_nonce(0).unwrap();
+		Chess::<T>::join_match(RawOrigin::Signed(opponent.clone()).into(), match_id).unwrap();
 
 		Chess::<T>::force_board_state(match_id, position_to_benchmark.as_bytes().to_vec()).unwrap();
 		let chess_match = Chess::<T>::chess_matches(match_id).unwrap();
@@ -233,6 +265,44 @@ benchmarks! {
 		};
 
 	}: _(RawOrigin::Signed(player), match_id, move_to_benchmark.as_str().into())
+
+	clear_abandoned_match {
+		let alice: T::AccountId = ALICE.into();
+		let bob: T::AccountId = BOB.into();
+		let janitor: T::AccountId = CHARLIE.into();
+		let bet_asset_id = ASSET_ID;
+		let bet_amount = ASSET_MIN_BALANCE * 10;
+
+		let initial_balance_a = Assets::<T>::balance(bet_asset_id.into(), alice.clone());
+		let initial_balance_b = Assets::<T>::balance(bet_asset_id.into(), bob.clone());
+		let initial_balance_c = Assets::<T>::balance(bet_asset_id.into(), janitor.clone());
+
+		Chess::<T>::create_match(RawOrigin::Signed(alice.clone()).into(), bob.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into()).unwrap();
+		let match_id = Chess::<T>::chess_match_id_from_nonce(0).unwrap();
+		Chess::<T>::join_match(RawOrigin::Signed(bob.clone()).into(), match_id).unwrap();
+		Chess::<T>::make_move(RawOrigin::Signed(alice.clone()).into(), match_id, "e2e4".into()).unwrap();
+
+		let chess_match: pallet::Match<T> = Chess::chess_matches(match_id).unwrap();
+		let (janitor_incentive, actual_prize): (BalanceOf<T>, BalanceOf<T>) = chess_match.janitor_incentive();
+		let (janitor_incentive, actual_prize): (u64, u64) = (janitor_incentive.saturated_into(), actual_prize.saturated_into());
+
+		// advance the block number to the point where Bob's time-to-move is expired
+		// and Alice's time to claim victory is also expired
+		System::<T>::set_block_number(
+			System::<T>::block_number() + <T as Config>::BulletPeriod::get() * 10u64.into() + 1u64.into(),
+		);
+	}: _(RawOrigin::Signed(janitor.clone()), match_id)
+	verify {
+		assert!(Chess::<T>::chess_matches(match_id).is_none());
+		assert!(Chess::<T>::chess_match_id_from_nonce(0).is_none());
+
+		let final_balance_a = Assets::<T>::balance(bet_asset_id.into(), alice);
+		let final_balance_b = Assets::<T>::balance(bet_asset_id.into(), bob);
+		let final_balance_c = Assets::<T>::balance(bet_asset_id.into(), janitor);
+		assert_eq!(final_balance_a, initial_balance_a - bet_amount.into() + actual_prize.into());
+		assert_eq!(final_balance_b, initial_balance_b - bet_amount.into());
+		assert_eq!(final_balance_c, initial_balance_c + janitor_incentive.into());
+	}
 
 	impl_benchmark_test_suite!(Chess, crate::mock::new_test_ext(), crate::mock::Test);
 }
