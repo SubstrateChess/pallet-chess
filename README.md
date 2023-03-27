@@ -22,6 +22,16 @@ When Challenger calls `create_match`, they establish the following parameters:
 
 A Match Id is calculated by hashing the tuple `(challenger, opponent, nonce)`, where the `nonce` is incremented for every new match created.
 
+#### Match Bets
+
+This pallet is loosely coupled with FRAME's `pallet-assets` (or any other pallet that implements `Inspect` + `Transfer` traits from `frame_support::traits::fungibles`).
+
+In order to create a match, Challenger chooses an Asset Id and an amount. During the execution of `create_match`, a deposit of such asset amount is made from their account.
+
+As soon as Opponent calls `join_match`, an equal deposit is made from their account.
+
+The winner of the match receives both deposits as reward. In case of draws, both players get their deposits back.
+
 #### Match Style
 
 Match styles define how much time each player has to make their move. Time is measured in blocks, and each style is defined as a `Config` type.
@@ -32,19 +42,12 @@ Assuming 6s per block, the following values are recommended:
 - `RapidPeriod`: 150 blocks (~15 minutes)
 - `DailyPeriod`: 14400 blocks (~1 day)
 
-In case a player takes longer than the expected time for their move, they lose the match.
+In case player `A` takes longer than the expected time for their move, then player `B` has the right to call `clear_abandoned_match` and claim victory, taking both deposits.
 
-The first move of the match is the only exception (right after Opponent calls `join_match`). Challenger (who always makes the first move) can take 100x longer than the average move, and the match results in draw in case time runs out.
+If `B` takes longer than `10 x _Period` to claim their victory, then some third party `C` is incentivized to act as a "janitor" and call `clear_abandoned_match` on their behalf. In this case, `C` gets a percentage of the winner's prize.
+This percentage is defined as a `Config` type called `IncentiveShare`.
 
-#### Match Bets
-
-This pallet is loosely coupled with FRAME's `pallet-assets` (or any other pallet that implements `Inspect` + `Transfer` traits from `frame_support::traits::fungibles`).
-
-In order to create a match, Challenger chooses an Asset Id and an amount. During the execution of `create_match`, a deposit of such asset amount is made from their account.
-
-As soon as Opponent calls `join_match`, an equal deposit is made from their account.
-
-The winner of the match receives both deposits as reward. In case of draws, both players get their deposits back.
+If the deposits are too small and the janitor incentive is smaller than the asset's `minimum_balance`, then the janitor takes the entire prize.
 
 ### Extrinsic Weights
 
