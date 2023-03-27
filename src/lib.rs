@@ -16,6 +16,8 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
+pub const INCENTIVE_SHARE: u8 = 10; // TODO configure value
+
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::WeightInfo;
@@ -24,7 +26,7 @@ pub mod pallet {
 		pallet_prelude::{DispatchResult, *},
 		sp_runtime::{
 			traits::{AccountIdConversion, Hash},
-			FixedPointOperand, Saturating,
+			FixedPointOperand, Percent, Saturating,
 		},
 		traits::{
 			fungibles::{Inspect, Transfer},
@@ -152,6 +154,27 @@ pub mod pallet {
 			)?;
 			Ok(())
 		}
+
+		fn clear_abandoned_bet(&self, winner: &T::AccountId, third_party: &T::AccountId) -> DispatchResult {
+			let win_amount = self.bet_amount.saturating_add(self.bet_amount);
+			let incentive = Percent::from_percent(T::IncentiveShare::get()) * win_amount;
+			let the_rest = win_amount - incentive;
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&T::pallet_account(),
+				third_party,
+				incentive,
+				false,
+			)?;
+			T::Assets::transfer(
+				self.bet_asset_id,
+				&T::pallet_account(),
+				winner,
+				the_rest,
+				false,
+			)?;
+			Ok(())
+		}
 	}
 
 	#[pallet::pallet]
@@ -198,6 +221,9 @@ pub mod pallet {
 
 		#[pallet::constant]
 		type DailyPeriod: Get<Self::BlockNumber>;
+
+		#[pallet::constant]
+		type IncentiveShare: Get<u8>;
 	}
 
 	pub trait ConfigHelper: Config {
@@ -221,6 +247,7 @@ pub mod pallet {
 		MatchDrawn(T::Hash, Vec<u8>),
 		MatchRefundError(T::Hash),
 		MatchAwardError(T::Hash, T::AccountId),
+		MatchClearanceError(T::Hash, T::AccountId, T::AccountId),
 	}
 
 	#[pallet::error]
@@ -239,6 +266,9 @@ pub mod pallet {
 		IllegalMove,
 		BetTooLow,
 		BetDoesNotExist,
+		MatchNotOnGoing,
+		MatchNotAbandoned,
+		MoveNotExpired,
 	}
 
 	#[pallet::hooks]
@@ -502,6 +532,71 @@ pub mod pallet {
 				// match still ongoing, update on-chain board
 				<Matches<T>>::insert(match_id, chess_match);
 			}
+
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(1000_000)] // TODO weights
+		pub fn clear_abandoned_match(
+			origin: OriginFor<T>,
+			match_id: T::Hash
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let chess_match = match Self::chess_matches(match_id) {
+				Some(m) => m,
+				None => return Err(Error::<T>::NonExistentMatch.into()),
+			};
+
+			ensure!(
+				(chess_match.state == MatchState::OnGoing(NextMove::Whites)) | 
+				(chess_match.state == MatchState::OnGoing(NextMove::Blacks)), 
+				Error::<T>::MatchNotOnGoing
+			);
+			
+			let now = <frame_system::Pallet<T>>::block_number();
+			let diff = now - chess_match.last_move;
+
+			let expired: bool = match chess_match.style {
+				MatchStyle::Bullet => diff > T::BulletPeriod::get(),
+				MatchStyle::Blitz => diff > T::BlitzPeriod::get(),
+				MatchStyle::Rapid => diff > T::RapidPeriod::get(),
+				MatchStyle::Daily => diff > T::DailyPeriod::get(),
+			};
+
+			ensure!(expired, Error::<T>::MoveNotExpired);
+
+			let winner = match chess_match.state {
+				MatchState::OnGoing(NextMove::Whites) => chess_match.opponent.clone(),
+				_ => chess_match.challenger.clone(),
+			};
+
+			Self::deposit_event(Event::MatchWon(match_id, winner.clone(), chess_match.board.clone()));
+
+			let abandoned: bool = match chess_match.style {
+				MatchStyle::Bullet => diff > T::BulletPeriod::get() * 10u32.into(),
+				MatchStyle::Blitz => diff > T::BlitzPeriod::get() * 10u32.into(),
+				MatchStyle::Rapid => diff > T::RapidPeriod::get() * 10u32.into(),
+				MatchStyle::Daily => diff > T::DailyPeriod::get() * 10u32.into(),
+			};
+
+			if (who == chess_match.challenger) | (who == chess_match.opponent) | !abandoned {
+				// winner gets both deposits before match becomes abandoned
+				match chess_match.win_bet(&winner) {
+					Ok(()) => {},
+					Err(_) => Self::deposit_event(Event::MatchAwardError(match_id, winner)),
+				}
+			} else {
+				// who cleared the match after match is abandoned gets the incentive, 
+				// and the winner gets both deposits minus the incentive share
+				match chess_match.clear_abandoned_bet(&winner, &who) {
+					Ok(()) => {},
+					Err(_) => Self::deposit_event(Event::MatchClearanceError(match_id, winner, who)),
+				}
+			}
+
+			<Matches<T>>::remove(match_id);
+			<MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
 			Ok(())
 		}
