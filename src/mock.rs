@@ -61,6 +61,7 @@ parameter_types! {
 	pub const RapidPeriod: u64 = 150;
 	pub const DailyPeriod: u64 = 14400;
 	pub const ChessPalletId: PalletId = PalletId(*b"subchess");
+	pub const IncentiveShare: u8 = 10;
 }
 
 impl pallet_chess::Config for Test {
@@ -73,6 +74,7 @@ impl pallet_chess::Config for Test {
 	type BlitzPeriod = BlitzPeriod;
 	type RapidPeriod = RapidPeriod;
 	type DailyPeriod = DailyPeriod;
+	type IncentiveShare = IncentiveShare;
 }
 
 impl pallet_balances::Config for Test {
