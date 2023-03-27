@@ -43,6 +43,7 @@ pub mod pallet {
 
 	type AssetIdOf<T> =
 		<<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
+	type BalanceOf<T> = <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	#[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
 	pub enum MatchStyle {
@@ -155,25 +156,32 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn clear_abandoned_bet(&self, winner: &T::AccountId, third_party: &T::AccountId) -> DispatchResult {
-			let win_amount = self.bet_amount.saturating_add(self.bet_amount);
-			let incentive = Percent::from_percent(T::IncentiveShare::get()) * win_amount;
-			let the_rest = win_amount - incentive;
+		fn clear_abandoned_bet(&self, winner: &T::AccountId, janitor: &T::AccountId) -> DispatchResult {
+			let (janitor_incentive, actual_prize) = self.janitor_incentive();
 			T::Assets::transfer(
 				self.bet_asset_id,
 				&T::pallet_account(),
-				third_party,
-				incentive,
+				janitor,
+				janitor_incentive,
 				false,
 			)?;
 			T::Assets::transfer(
 				self.bet_asset_id,
 				&T::pallet_account(),
 				winner,
-				the_rest,
+				actual_prize,
 				false,
 			)?;
 			Ok(())
+		}
+
+		pub fn janitor_incentive(&self) -> (BalanceOf<T>, BalanceOf<T>) {
+			let winner_prize = self.bet_amount.saturating_add(self.bet_amount);
+			let (janitor_incentive, actual_prize) = match Percent::from_percent(T::IncentiveShare::get()) * winner_prize {
+				i if i >= T::Assets::minimum_balance(self.bet_asset_id) => (i, winner_prize - i),
+				_ => (winner_prize, 0u32.into()), // if the bet is too small, we just give the whole prize to the janitor
+			};
+			(janitor_incentive, actual_prize)
 		}
 	}
 
