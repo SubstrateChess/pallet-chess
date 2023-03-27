@@ -1,7 +1,7 @@
 use crate::{self as pallet_chess};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, OnFinalize, OnInitialize, AsEnsureOriginWithArg},
+	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, AsEnsureOriginWithArg},
 	PalletId,
 };
 use frame_system as system;
@@ -135,16 +135,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	};
 	config.assimilate_storage(&mut storage).unwrap();
 	storage.into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			Chess::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Chess::on_initialize(System::block_number());
-	}
 }
