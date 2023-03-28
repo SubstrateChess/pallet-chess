@@ -10,7 +10,7 @@ fn create_match_works() {
 		let bob = account("Bob", 0, 1);
 
 		let bet_asset_id = AssetId::get();
-		let bet_amount_low = AssetMinBalance::get() / 2;
+		let bet_amount_low = AssetMinBalance::get() * 4; // assuming T::IncentiveShare is 10%
 
 		// assert BetTooLow error
 		assert_noop!(
@@ -298,7 +298,7 @@ fn force_board_state_works() {
 		let bob = account("Bob", 0, 1);
 
 		let bet_asset_id = AssetId::get();
-		let bet_amount = AssetMinBalance::get() * 5; // assuming T::IncentiveShare is 10%
+		let bet_amount = AssetMinBalance::get() * 5;	// assuming T::IncentiveShare is 10%
 
 		assert_ok!(Chess::create_match(
 			RuntimeOrigin::signed(alice),
@@ -372,7 +372,7 @@ fn claim_victory_works() {
 }
 
 #[test]
-fn janitor_incentive_works_with_big_bet() {
+fn janitor_incentive_works() {
 	new_test_ext().execute_with(|| {
 		let alice = account("Alice", 0, 0);
 		let bob = account("Bob", 0, 1);
@@ -426,66 +426,6 @@ fn janitor_incentive_works_with_big_bet() {
 		let final_balance_b = Assets::balance(bet_asset_id, bob);
 		let final_balance_c = Assets::balance(bet_asset_id, charlie);
 		assert_eq!(final_balance_a, initial_balance_a - bet_amount + actual_prize);
-		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
-		assert_eq!(final_balance_c, initial_balance_c + janitor_incentive);
-	});
-}
-
-#[test]
-fn janitor_incentive_works_with_small_bet() {
-	new_test_ext().execute_with(|| {
-		let alice = account("Alice", 0, 0);
-		let bob = account("Bob", 0, 1);
-		let charlie = account("Charlie", 0, 2);
-
-		let bet_asset_id = AssetId::get();
-		let bet_amount = AssetMinBalance::get() * 2; // small bet
-
-		let initial_balance_a = Assets::balance(bet_asset_id, alice);
-		let initial_balance_b = Assets::balance(bet_asset_id, bob);
-		let initial_balance_c = Assets::balance(bet_asset_id, charlie);
-
-		assert_ok!(Chess::create_match(
-			RuntimeOrigin::signed(alice),
-			bob,
-			MatchStyle::Bullet,
-			bet_asset_id,
-			bet_amount
-		));
-
-		let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
-
-		assert_ok!(Chess::join_match(RuntimeOrigin::signed(bob), match_id));
-		assert_ok!(Chess::make_move(RuntimeOrigin::signed(alice), match_id, "e2e4".into()));
-
-		let chess_match = Chess::chess_matches(match_id).unwrap();
-		let (janitor_incentive, _) = chess_match.janitor_incentive();
-
-		// advance the block number to the point where BOB's time-to-move is expired
-		// and ALICE's time to claim victory is also expired
-		System::set_block_number(
-			System::block_number() + <Test as Config>::BulletPeriod::get() * 10 + 1,
-		);
-
-		// CHARLIE cleans abandoned match
-		assert_ok!(Chess::clear_abandoned_match(RuntimeOrigin::signed(charlie), match_id));
-
-		System::assert_has_event(
-			Event::MatchWon {
-				0: match_id,
-				1: alice,
-				2: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".into(),
-			}
-			.into(),
-		);
-
-		assert_eq!(Chess::chess_matches(match_id), None);
-		assert_eq!(Chess::chess_match_id_from_nonce(0), None);
-
-		let final_balance_a = Assets::balance(bet_asset_id, alice);
-		let final_balance_b = Assets::balance(bet_asset_id, bob);
-		let final_balance_c = Assets::balance(bet_asset_id, charlie);
-		assert_eq!(final_balance_a, initial_balance_a - bet_amount);
 		assert_eq!(final_balance_b, initial_balance_b - bet_amount);
 		assert_eq!(final_balance_c, initial_balance_c + janitor_incentive);
 	});

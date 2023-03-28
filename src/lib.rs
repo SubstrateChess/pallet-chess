@@ -91,7 +91,11 @@ pub mod pallet {
 				return Err(Error::<T>::BetDoesNotExist.into());
 			}
 
-			if self.bet_amount < T::Assets::minimum_balance(self.bet_asset_id) {
+			// bet must cover janitor incentives
+			if Percent::from_percent(T::IncentiveShare::get())
+				* self.bet_amount.saturating_add(self.bet_amount)
+				< T::Assets::minimum_balance(self.bet_asset_id)
+			{
 				return Err(Error::<T>::BetTooLow.into());
 			}
 
@@ -182,13 +186,8 @@ pub mod pallet {
 
 		pub fn janitor_incentive(&self) -> (BalanceOf<T>, BalanceOf<T>) {
 			let winner_prize = self.bet_amount.saturating_add(self.bet_amount);
-			let (janitor_incentive, actual_prize) =
-				match Percent::from_percent(T::IncentiveShare::get()) * winner_prize {
-					i if i >= T::Assets::minimum_balance(self.bet_asset_id) => {
-						(i, winner_prize - i)
-					},
-					_ => (winner_prize, 0u32.into()), // if the bet is too small, we just give the whole prize to the janitor
-				};
+			let janitor_incentive = Percent::from_percent(T::IncentiveShare::get()) * winner_prize;
+			let actual_prize = winner_prize.saturating_sub(janitor_incentive);
 			(janitor_incentive, actual_prize)
 		}
 	}
