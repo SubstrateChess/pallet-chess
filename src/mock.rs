@@ -1,7 +1,7 @@
 use crate::{self as pallet_chess};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild, OnFinalize, OnInitialize, AsEnsureOriginWithArg},
+	traits::{AsEnsureOriginWithArg, ConstU16, ConstU32, ConstU64, GenesisBuild},
 	PalletId,
 };
 use frame_system as system;
@@ -61,6 +61,7 @@ parameter_types! {
 	pub const RapidPeriod: u64 = 150;
 	pub const DailyPeriod: u64 = 14400;
 	pub const ChessPalletId: PalletId = PalletId(*b"subchess");
+	pub const IncentiveShare: u8 = 10; // janitor gets 10% of the prize
 }
 
 impl pallet_chess::Config for Test {
@@ -73,6 +74,7 @@ impl pallet_chess::Config for Test {
 	type BlitzPeriod = BlitzPeriod;
 	type RapidPeriod = RapidPeriod;
 	type DailyPeriod = DailyPeriod;
+	type IncentiveShare = IncentiveShare;
 }
 
 impl pallet_balances::Config for Test {
@@ -135,16 +137,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	};
 	config.assimilate_storage(&mut storage).unwrap();
 	storage.into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		if System::block_number() > 1 {
-			Chess::on_finalize(System::block_number());
-			System::on_finalize(System::block_number());
-		}
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Chess::on_initialize(System::block_number());
-	}
 }
