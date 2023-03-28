@@ -47,7 +47,8 @@ In case player `A` takes longer than the expected time for their move, then play
 If `B` takes longer than `10 x _Period` to claim their victory, then some third party `C` is incentivized to act as a "janitor" and call `clear_abandoned_match` on their behalf. In this case, `C` gets a percentage of the winner's prize.
 This percentage is defined as a `Config` type called `IncentiveShare`.
 
-If the deposits are too small and the janitor incentive is smaller than the asset's `minimum_balance`, then the janitor takes the entire prize.
+Bet deposits must cover janitor incentives such that `2 * Bet * IncentiveShare >= MinimumBalance`.
+For example, if the asset has `MinimumBalance = 100` and `IncentiveShare = 10%`, then the minimum allowed deposit is `500`.
 
 ### Extrinsic Weights
 
