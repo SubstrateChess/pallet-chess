@@ -5,8 +5,7 @@ f = open('benchmarks.json')
 benchmarks = json.load(f)
 f.close()
 
-# benchmarks[3] contains the benchmark samples for the `make_move` extrinsic
-make_move_benchmarked_time_results = benchmarks[3]['time_results']
+make_move_benchmarked_time_results = benchmarks[0]['time_results']
 
 t_array = []
 i_array = []
