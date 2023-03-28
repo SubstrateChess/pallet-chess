@@ -117,10 +117,6 @@ frame_support::parameter_types! {
 	pub const AssetMinBalance: u64 = ASSET_MIN_BALANCE;
 }
 
-pub const ALICE: u64 = 1;
-pub const BOB: u64 = 2;
-pub const CHARLIE: u64 = 3;
-
 // Build genesis storage according to the mock runtime.
 #[allow(dead_code)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -139,8 +135,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		],
 		accounts: vec![
 			// id, account_id, balance
-			(asset_id, 1, asset_min_balance * 100),
-			(asset_id, 2, asset_min_balance * 100),
+			(asset_id, frame_benchmarking::account("Alice", 0, 0), asset_min_balance * 100),
+			(asset_id, frame_benchmarking::account("Bob", 0, 1), asset_min_balance * 100),
 		],
 	};
 	config.assimilate_storage(&mut storage).unwrap();

@@ -8,9 +8,9 @@ use log;
 #[allow(unused)]
 use crate::Pallet as Chess;
 //use crate::mock::*;
-use frame_benchmarking::{benchmarks, vec, Vec};
-use frame_system::{RawOrigin, Pallet as System};
-use pallet_assets::Pallet as Assets;
+use frame_benchmarking::{account, benchmarks, vec, Vec};
+use frame_system::{Pallet as System, RawOrigin};
+//use pallet_assets::Pallet as Assets;
 use scale_info::prelude::{format, string::String};
 use sp_core::Get;
 use sp_runtime::SaturatedConversion;
@@ -171,10 +171,6 @@ fn generate_moves(board_fen: &str) -> Vec<String> {
 	all_moves
 }
 
-pub const ALICE: u64 = 1;
-pub const BOB: u64 = 2;
-pub const CHARLIE: u64 = 3;
-
 pub const ASSET_ID: u32 = 200u32;
 pub const ASSET_MIN_BALANCE: u64 = 1_000u64;
 
@@ -183,17 +179,15 @@ benchmarks! {
 		where
 			AssetIdOf<T>: From<u32>,
 			BalanceOf<T>: From<u64>,
-			T::AssetBalance: From<u64>,
-			T::AccountId: From<u64>,
-			T::BlockNumber: From<u64>,
-			T: pallet_assets::Config,
-			<T as pallet_assets::Config>::AssetId: From<u32>,
-			<T as pallet_assets::Config>::Balance: From<u64>,
+			T::BlockNumber: From<u32>,
+			// T: pallet_assets::Config,
+			// <T as pallet_assets::Config>::AssetId: From<u32>,
+			// <T as pallet_assets::Config>::Balance: From<u64>,
 	}
 
 	create_match {
-		let challenger: T::AccountId = ALICE.into();
-		let opponent: T::AccountId = BOB.into();
+		let challenger: T::AccountId = account("Alice", 0, 0);
+		let opponent: T::AccountId = account("Bob", 0, 1);
 		let bet_asset_id = ASSET_ID;
 		let bet_amount = ASSET_MIN_BALANCE * 10;
 	}: _(RawOrigin::Signed(challenger.clone()), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into())
@@ -208,8 +202,8 @@ benchmarks! {
 	}
 
 	abort_match {
-		let challenger: T::AccountId = ALICE.into();
-		let opponent: T::AccountId = BOB.into();
+		let challenger: T::AccountId = account("Alice", 0, 0);
+		let opponent: T::AccountId = account("Bob", 0, 1);
 		let bet_asset_id = ASSET_ID;
 		let bet_amount = ASSET_MIN_BALANCE * 10;
 		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into()).unwrap();
@@ -221,8 +215,8 @@ benchmarks! {
 	}
 
 	join_match {
-		let challenger: T::AccountId = ALICE.into();
-		let opponent: T::AccountId = BOB.into();
+		let challenger: T::AccountId = account("Alice", 0, 0);
+		let opponent: T::AccountId = account("Bob", 0, 1);
 		let bet_asset_id = ASSET_ID;
 		let bet_amount = ASSET_MIN_BALANCE * 10;
 		Chess::<T>::create_match(RawOrigin::Signed(challenger.clone()).into(), opponent.clone(), MatchStyle::Bullet, bet_asset_id.into(), bet_amount.into()).unwrap();
@@ -246,8 +240,8 @@ benchmarks! {
 
 		log::info!("i: {}, pos_index: {}, move_index:{}, move: {}, board: {}", i, position_index, move_index, move_to_benchmark, position_to_benchmark);
 
-		let challenger: T::AccountId = ALICE.into();
-		let opponent: T::AccountId = BOB.into();
+		let challenger: T::AccountId = account("Alice", 0, 0);
+		let opponent: T::AccountId = account("Bob", 0, 1);
 		let bet_asset_id = ASSET_ID;
 		let bet_amount = ASSET_MIN_BALANCE * 10;
 
@@ -267,9 +261,9 @@ benchmarks! {
 	}: _(RawOrigin::Signed(player), match_id, move_to_benchmark.as_str().into())
 
 	clear_abandoned_match {
-		let alice: T::AccountId = ALICE.into();
-		let bob: T::AccountId = BOB.into();
-		let janitor: T::AccountId = CHARLIE.into();
+		let alice: T::AccountId = account("Alice", 0, 0);
+		let bob: T::AccountId = account("Bob", 0, 1);
+		let janitor: T::AccountId = account("Charlie", 0, 2);
 		let bet_asset_id = ASSET_ID;
 		let bet_amount = ASSET_MIN_BALANCE * 10;
 
@@ -289,7 +283,7 @@ benchmarks! {
 		// advance the block number to the point where Bob's time-to-move is expired
 		// and Alice's time to claim victory is also expired
 		System::<T>::set_block_number(
-			System::<T>::block_number() + <T as Config>::BulletPeriod::get() * 10u64.into() + 1u64.into(),
+			System::<T>::block_number() + <T as Config>::BulletPeriod::get() * 10u32.into() + 1u32.into(),
 		);
 	}: _(RawOrigin::Signed(janitor.clone()), match_id)
 	verify {
