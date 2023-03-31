@@ -16,8 +16,6 @@ mod benchmarking;
 pub mod weights;
 pub use weights::*;
 
-pub const INCENTIVE_SHARE: u8 = 10; // TODO configure value
-
 #[frame_support::pallet]
 pub mod pallet {
 	use crate::WeightInfo;
@@ -475,7 +473,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(4)]
-		#[pallet::weight(1000_000)] // TODO weights
+		#[pallet::weight(T::WeightInfo::clear_abandoned_match())]
 		pub fn clear_abandoned_match(origin: OriginFor<T>, match_id: T::Hash) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let chess_match = match Self::chess_matches(match_id) {
