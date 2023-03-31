@@ -1,8 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
 #[cfg(test)]
@@ -25,8 +22,8 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, *},
 		sp_runtime::{
-			traits::{AccountIdConversion, Hash},
-			FixedPointOperand, Percent, Saturating,
+			traits::{AccountIdConversion, Hash, Saturating, Zero},
+			FixedPointOperand, Percent,
 		},
 		traits::{
 			fungibles::{Inspect, Transfer},
@@ -87,7 +84,7 @@ pub mod pallet {
 
 	impl<T: Config> Match<T> {
 		fn challenger_bet(&self) -> DispatchResult {
-			if !T::Assets::asset_exists(self.bet_asset_id) {
+			if T::Assets::minimum_balance(self.bet_asset_id).is_zero() {
 				return Err(Error::<T>::BetDoesNotExist.into());
 			}
 
@@ -215,7 +212,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type WeightInfo: WeightInfo;
 		type Assets: Inspect<Self::AccountId, Balance = Self::AssetBalance>
 			+ Transfer<Self::AccountId>;

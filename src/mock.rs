@@ -1,7 +1,7 @@
 use crate::{self as pallet_chess};
 use frame_support::{
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU16, ConstU32, ConstU64, GenesisBuild},
+	traits::{ConstU16, ConstU32, ConstU64, GenesisBuild},
 	PalletId,
 };
 use frame_system as system;
@@ -33,8 +33,8 @@ impl system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
+	type Origin = Origin;
+	type Call = Call;
 	type Index = u64;
 	type BlockNumber = u64;
 	type Hash = H256;
@@ -42,7 +42,7 @@ impl system::Config for Test {
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
+	type Event = Event;
 	type BlockHashCount = ConstU64<250>;
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -66,7 +66,7 @@ parameter_types! {
 
 impl pallet_chess::Config for Test {
 	type PalletId = ChessPalletId;
-	type RuntimeEvent = RuntimeEvent;
+	type Event = Event;
 	type WeightInfo = pallet_chess::weights::SubstrateWeight<Test>;
 	type Assets = Assets;
 	type AssetBalance = u64;
@@ -80,7 +80,7 @@ impl pallet_chess::Config for Test {
 impl pallet_balances::Config for Test {
 	type Balance = u64;
 	type DustRemoval = ();
-	type RuntimeEvent = RuntimeEvent;
+	type Event = Event;
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
@@ -90,12 +90,10 @@ impl pallet_balances::Config for Test {
 }
 
 impl pallet_assets::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
+	type Event = Event;
 	type Balance = u64;
 	type AssetId = u32;
-	type AssetIdParameter = u32;
 	type Currency = Balances;
-	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<u64>>;
 	type ForceOrigin = frame_system::EnsureRoot<u64>;
 	type AssetDeposit = ConstU64<1>;
 	type AssetAccountDeposit = ConstU64<10>;
@@ -106,7 +104,6 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type WeightInfo = ();
 	type Extra = ();
-	type RemoveItemsLimit = ConstU32<5>;
 }
 
 pub const ASSET_ID: u32 = 200u32;

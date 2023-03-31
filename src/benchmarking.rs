@@ -12,7 +12,7 @@ use frame_benchmarking::{account, benchmarks, vec, Vec};
 use frame_system::{Pallet as System, RawOrigin};
 //use pallet_assets::Pallet as Assets;
 use scale_info::prelude::{format, string::String};
-use sp_core::Get;
+use sp_runtime::traits::Get;
 use sp_runtime::SaturatedConversion;
 
 const MOVES_PER_POSITION: u32 = 52;
