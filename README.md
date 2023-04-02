@@ -1,5 +1,9 @@
 # ♜♞♝♛♚ Substrate Chess ♔♕♗♘♖
 
+**Note**: this branch contains `pallet_chess` functionality refactored for [`GMorDie`](https://github.com/GMorDIE/gm-chain/).
+
+It has a loose coupling with `orml_currencies` via the `MultiCurrency` trait, instead of `pallet_assets` via `Inspect` + `Transfer` traits from `frame_support::traits::fungibles`.
+
 ## Overview
 
 This pallet provides a way to play on-chain chess. It benefits from [`cozy-chess`](https://crates.io/crates/cozy-chess) and its ability to compile to WASM out-of-the-box (`no_std` compatible).
@@ -23,8 +27,6 @@ When Challenger calls `create_match`, they establish the following parameters:
 A Match Id is calculated by hashing the tuple `(challenger, opponent, nonce)`, where the `nonce` is incremented for every new match created.
 
 #### Match Bets
-
-This pallet is loosely coupled with FRAME's `pallet-assets` (or any other pallet that implements `Inspect` + `Transfer` traits from `frame_support::traits::fungibles`).
 
 In order to create a match, Challenger chooses an Asset Id and an amount. During the execution of `create_match`, a deposit of such asset amount is made from their account.
 
