@@ -5,7 +5,7 @@ use frame_support::{assert_noop, assert_ok};
 use orml_traits::MultiCurrency;
 
 #[test]
-fn create_match_works() {
+fn fren_create_match_works() {
     ExtBuilder::default()
         .fund_alice_and_bob()
         .build()
@@ -14,9 +14,8 @@ fn create_match_works() {
             let bob = account("Bob", 0, 1);
 
             let bet_asset_id = GetNativeCurrencyId::get();
-            let bet_amount_low = Currencies::minimum_balance(bet_asset_id) * 4; // assuming T::IncentiveShare is 10%
+            let bet_amount_low = Currencies::minimum_balance(bet_asset_id) / 2;
 
-            // assert BetTooLow error
             assert_noop!(
                 Chess::create_match(
                     Origin::signed(alice),
@@ -28,7 +27,7 @@ fn create_match_works() {
                 Error::<Test>::BetTooLow
             );
 
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_amount = Currencies::minimum_balance(bet_asset_id);
 
             // assert InvalidOpponent error
             assert_noop!(
@@ -71,7 +70,59 @@ fn create_match_works() {
 }
 
 #[test]
-fn abort_match_works() {
+fn gm_create_match_works() {
+    ExtBuilder::default()
+        .fund_alice_and_bob()
+        .build()
+        .execute_with(|| {
+            let alice = account("Alice", 0, 0);
+            let bob = account("Bob", 0, 1);
+
+            let bet_asset_id = GetGMCurrencyId::get();
+            let bet_amount = Currencies::minimum_balance(bet_asset_id);
+
+            // assert InvalidOpponent error
+            assert_noop!(
+                Chess::create_match(
+                    Origin::signed(alice),
+                    alice,
+                    MatchStyle::Bullet,
+                    bet_asset_id,
+                    bet_amount
+                ),
+                Error::<Test>::InvalidOpponent
+            );
+
+            // assert successful create_match
+            let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+
+            assert_ok!(Chess::create_match(
+                Origin::signed(alice),
+                bob,
+                MatchStyle::Bullet,
+                bet_asset_id,
+                bet_amount
+            ));
+
+            let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+            let chess_match = Chess::chess_matches(match_id).unwrap();
+
+            assert_eq!(chess_match.challenger, alice);
+            assert_eq!(chess_match.opponent, bob);
+            assert_eq!(
+                chess_match.board,
+                Board::default().to_string().as_bytes().to_vec()
+            );
+            assert_eq!(chess_match.state, MatchState::AwaitingOpponent);
+            assert_eq!(chess_match.nonce, 0);
+
+            let final_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            assert_eq!(final_balance_a, initial_balance_a - bet_amount);
+        });
+}
+
+#[test]
+fn fren_abort_match_works() {
     ExtBuilder::default()
         .fund_alice_and_bob()
         .build()
@@ -82,7 +133,7 @@ fn abort_match_works() {
             let bet_asset_id = GetNativeCurrencyId::get();
 
             let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
 
             assert_ok!(Chess::create_match(
                 Origin::signed(alice),
@@ -110,7 +161,46 @@ fn abort_match_works() {
 }
 
 #[test]
-fn join_match_works() {
+fn gm_abort_match_works() {
+    ExtBuilder::default()
+        .fund_alice_and_bob()
+        .build()
+        .execute_with(|| {
+            let alice = account("Alice", 0, 0);
+            let bob = account("Bob", 0, 1);
+
+            let bet_asset_id = GetGMCurrencyId::get();
+
+            let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
+
+            assert_ok!(Chess::create_match(
+                Origin::signed(alice),
+                bob,
+                MatchStyle::Bullet,
+                bet_asset_id,
+                bet_amount
+            ));
+
+            let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+            assert_noop!(
+                Chess::abort_match(Origin::signed(bob), match_id),
+                Error::<Test>::NotMatchChallenger
+            );
+
+            assert_ok!(Chess::abort_match(Origin::signed(alice), match_id));
+
+            assert_eq!(Chess::chess_matches(match_id), None);
+            assert_eq!(Chess::chess_match_id_from_nonce(0), None);
+
+            let final_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            assert_eq!(final_balance_a, initial_balance_a);
+        });
+}
+
+#[test]
+fn fren_join_match_works() {
     ExtBuilder::default()
         .fund_alice_and_bob()
         .build()
@@ -123,7 +213,7 @@ fn join_match_works() {
             let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
             let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
 
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
 
             assert_ok!(Chess::create_match(
                 Origin::signed(alice),
@@ -148,7 +238,45 @@ fn join_match_works() {
 }
 
 #[test]
-fn make_move_works() {
+fn gm_join_match_works() {
+    ExtBuilder::default()
+        .fund_alice_and_bob()
+        .build()
+        .execute_with(|| {
+            let alice = account("Alice", 0, 0);
+            let bob = account("Bob", 0, 1);
+
+            let bet_asset_id = GetGMCurrencyId::get();
+
+            let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
+
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
+
+            assert_ok!(Chess::create_match(
+                Origin::signed(alice),
+                bob,
+                MatchStyle::Bullet,
+                bet_asset_id,
+                bet_amount
+            ));
+
+            let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+            assert_ok!(Chess::join_match(Origin::signed(bob), match_id));
+
+            let chess_match = Chess::chess_matches(match_id).unwrap();
+            assert_eq!(chess_match.state, MatchState::OnGoing(NextMove::Whites));
+
+            let final_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let final_balance_b = Currencies::free_balance(bet_asset_id, &bob);
+            assert_eq!(final_balance_a, initial_balance_a - bet_amount);
+            assert_eq!(final_balance_b, initial_balance_b - bet_amount);
+        });
+}
+
+#[test]
+fn fren_make_move_works() {
     ExtBuilder::default()
         .fund_alice_and_bob()
         .build()
@@ -163,7 +291,7 @@ fn make_move_works() {
             let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
             let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
 
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
 
             assert_ok!(Chess::create_match(
                 Origin::signed(alice),
@@ -421,6 +549,280 @@ fn make_move_works() {
         });
 }
 
+#[test]
+fn gm_make_move_works() {
+    ExtBuilder::default()
+        .fund_alice_and_bob()
+        .build()
+        .execute_with(|| {
+            System::set_block_number(1);
+
+            let alice = account("Alice", 0, 0);
+            let bob = account("Bob", 0, 1);
+
+            let bet_asset_id = GetGMCurrencyId::get();
+
+            let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
+
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
+
+            assert_ok!(Chess::create_match(
+                Origin::signed(alice),
+                bob,
+                MatchStyle::Bullet,
+                bet_asset_id,
+                bet_amount
+            ));
+
+            let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+            assert_ok!(Chess::join_match(Origin::signed(bob), match_id));
+
+            // test successful make_move
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "e2e4".into()
+            ));
+            System::assert_last_event(
+                Event::MoveExecuted {
+                    0: match_id,
+                    1: alice,
+                    2: "e2e4".into(),
+                }
+                    .into(),
+            );
+
+            // test NotYourTurn error
+            assert_noop!(
+                Chess::make_move(Origin::signed(alice), match_id, "e7e5".into()),
+                Error::<Test>::NotYourTurn
+            );
+
+            // test IllegalMove error
+            assert_noop!(
+                Chess::make_move(Origin::signed(bob), match_id, "e2e4".into()),
+                Error::<Test>::IllegalMove
+            );
+
+            // test InvalidMoveEncoding
+            assert_noop!(
+                Chess::make_move(Origin::signed(bob), match_id, "1234".into()),
+                Error::<Test>::InvalidMoveEncoding
+            );
+
+            // test InvalidMoveEncoding
+            assert_noop!(
+                Chess::make_move(Origin::signed(bob), match_id, "e1e2e3".into()),
+                Error::<Test>::InvalidMoveEncoding
+            );
+
+            // test InvalidMoveEncoding
+            assert_noop!(
+                Chess::make_move(Origin::signed(bob), match_id, "1".into()),
+                Error::<Test>::InvalidMoveEncoding
+            );
+
+            // test MatchWon
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "e7e5".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "g1f3".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "b8c6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "d2d4".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "e5d4".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "f3d4".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "f8c5".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "c2c3".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "d8f6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "d4c6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "f6f2".into()
+            ));
+            System::assert_has_event(
+                Event::MatchWon {
+                    0: match_id,
+                    1: bob,
+                    2: "r1b1k1nr/pppp1ppp/2N5/2b5/4P3/2P5/PP3qPP/RNBQKB1R w KQkq - 0 7".into(),
+                }
+                    .into(),
+            );
+            assert_eq!(Chess::chess_matches(match_id), None);
+
+            let final_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let final_balance_b = Currencies::free_balance(bet_asset_id, &bob);
+            assert_eq!(final_balance_a, initial_balance_a - bet_amount);
+            assert_eq!(final_balance_b, initial_balance_b + bet_amount);
+
+            // --------------------------------------
+            // test MatchDrawn
+            let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
+
+            assert_ok!(Chess::create_match(
+                Origin::signed(alice),
+                bob,
+                MatchStyle::Bullet,
+                bet_asset_id,
+                bet_amount
+            ));
+
+            let match_id = Chess::chess_match_id_from_nonce(1).unwrap();
+
+            assert_ok!(Chess::join_match(Origin::signed(bob), match_id));
+
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "c2c4".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "h7h5".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "h2h4".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "a7a5".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "d1a4".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "a8a6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "a4a5".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "a6h6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "a5c7".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "f7f6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "c7d7".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "e8f7".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "d7b7".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "d8d3".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "b7b8".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "d3h7".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "b8c8".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(bob),
+                match_id,
+                "f7g6".into()
+            ));
+            assert_ok!(Chess::make_move(
+                Origin::signed(alice),
+                match_id,
+                "c8e6".into()
+            ));
+            System::assert_has_event(
+                Event::MatchDrawn {
+                    0: match_id,
+                    1: "5bnr/4p1pq/4Qpkr/7p/2P4P/8/PP1PPPP1/RNB1KBNR b KQ - 2 10".into(),
+                }
+                    .into(),
+            );
+            assert_eq!(Chess::chess_matches(match_id), None);
+
+            let final_balance_a = Currencies::free_balance(bet_asset_id, &alice);
+            let final_balance_b = Currencies::free_balance(bet_asset_id, &bob);
+            assert_eq!(final_balance_a, initial_balance_a);
+            assert_eq!(final_balance_b, initial_balance_b);
+        });
+}
+
 const BOARD_STATE: &str = "Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67";
 
 #[test]
@@ -433,7 +835,7 @@ fn force_board_state_works() {
             let bob = account("Bob", 0, 1);
 
             let bet_asset_id = GetNativeCurrencyId::get();
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
 
             assert_ok!(Chess::create_match(
                 Origin::signed(alice),
@@ -455,7 +857,7 @@ fn force_board_state_works() {
 }
 
 #[test]
-fn claim_victory_works() {
+fn fren_claim_victory_works() {
     ExtBuilder::default()
         .fund_alice_and_bob()
         .build()
@@ -464,7 +866,7 @@ fn claim_victory_works() {
             let bob = account("Bob", 0, 1);
 
             let bet_asset_id = GetNativeCurrencyId::get();
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
 
             let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
             let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
@@ -517,7 +919,7 @@ fn claim_victory_works() {
 }
 
 #[test]
-fn janitor_incentive_works() {
+fn gm_claim_victory_works() {
     ExtBuilder::default()
         .fund_alice_and_bob()
         .build()
@@ -526,12 +928,11 @@ fn janitor_incentive_works() {
             let bob = account("Bob", 0, 1);
             let charlie = account("Charlie", 0, 2);
 
-            let bet_asset_id = GetNativeCurrencyId::get();
-            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5; // assuming T::IncentiveShare is 10%
+            let bet_asset_id = GetGMCurrencyId::get();
+            let bet_amount = Currencies::minimum_balance(bet_asset_id) * 5;
 
             let initial_balance_a = Currencies::free_balance(bet_asset_id, &alice);
             let initial_balance_b = Currencies::free_balance(bet_asset_id, &bob);
-            let initial_balance_c = Currencies::free_balance(bet_asset_id, &charlie);
 
             assert_ok!(Chess::create_match(
                 Origin::signed(alice),
@@ -550,19 +951,19 @@ fn janitor_incentive_works() {
                 "e2e4".into()
             ));
 
-            let chess_match = Chess::chess_matches(match_id).unwrap();
-            let janitor_incentive = chess_match.janitor_incentive();
-            let actual_prize = bet_amount.saturating_add(bet_amount) - janitor_incentive;
-
             // advance the block number to the point where bob's time-to-move is expired
-            // and alice's time to claim victory is also expired
             System::set_block_number(
-                System::block_number() + <Test as Config>::BulletPeriod::get() * 10 + 1,
+                System::block_number() + <Test as Config>::BulletPeriod::get() + 1,
             );
 
-            // charlie cleans abandoned match
+            assert_noop!(
+                Chess::clear_abandoned_match(Origin::signed(charlie), match_id),
+                Error::<Test>::NotAuthorized
+            );
+
+            // alice claims victory
             assert_ok!(Chess::clear_abandoned_match(
-                Origin::signed(charlie),
+                Origin::signed(alice),
                 match_id
             ));
 
@@ -572,7 +973,7 @@ fn janitor_incentive_works() {
                     1: alice,
                     2: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1".into(),
                 }
-                .into(),
+                    .into(),
             );
 
             assert_eq!(Chess::chess_matches(match_id), None);
@@ -580,12 +981,7 @@ fn janitor_incentive_works() {
 
             let final_balance_a = Currencies::free_balance(bet_asset_id, &alice);
             let final_balance_b = Currencies::free_balance(bet_asset_id, &bob);
-            let final_balance_c = Currencies::free_balance(bet_asset_id, &charlie);
-            assert_eq!(
-                final_balance_a,
-                initial_balance_a - bet_amount + actual_prize
-            );
+            assert_eq!(final_balance_a, initial_balance_a + bet_amount);
             assert_eq!(final_balance_b, initial_balance_b - bet_amount);
-            assert_eq!(final_balance_c, initial_balance_c + janitor_incentive);
         });
 }

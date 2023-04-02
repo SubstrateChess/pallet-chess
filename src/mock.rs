@@ -82,7 +82,6 @@ impl pallet_chess::Config for Test {
     type BlitzPeriod = BlitzPeriod;
     type RapidPeriod = RapidPeriod;
     type DailyPeriod = DailyPeriod;
-    type IncentiveShare = IncentiveShare;
 }
 
 type CurrencyId = Coooooins;

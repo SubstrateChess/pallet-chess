@@ -46,9 +46,6 @@ Assuming 6s per block, the following values are recommended:
 
 In case player `A` takes longer than the expected time for their move, then player `B` has the right to call `clear_abandoned_match` and claim victory, taking both deposits.
 
-If `B` takes longer than `10 x _Period` to claim their victory, then some third party `C` is incentivized to act as a "janitor" and call `clear_abandoned_match` on their behalf. In this case, `C` gets a percentage of the winner's prize.
-This percentage is defined as a `Config` type called `IncentiveShare`.
-
 Bet deposits must cover janitor incentives such that `2 * Bet * IncentiveShare >= MinimumBalance`.
 For example, if the asset has `MinimumBalance = 100` and `IncentiveShare = 10%`, then the minimum allowed deposit is `500`.
 

@@ -281,7 +281,6 @@ benchmarks! {
     clear_abandoned_match {
         let alice: T::AccountId = account("Alice", 0, 0);
         let bob: T::AccountId = account("Bob", 0, 1);
-        let janitor: T::AccountId = account("Charlie", 0, 2);
         let bet_asset_id = Coooooins::FREN;
         let bet_amount = <T as crate::Config>::MultiCurrency::minimum_balance(bet_asset_id.clone().into()).saturating_mul(5u32.into()); // assuming T::IncentiveShare is 10%
 
@@ -293,11 +292,10 @@ benchmarks! {
         let chess_match: pallet::Match<T> = Chess::chess_matches(match_id).unwrap();
 
         // advance the block number to the point where Bob's time-to-move is expired
-        // and Alice's time to claim victory is also expired
         System::<T>::set_block_number(
             System::<T>::block_number() + <T as crate::Config>::BulletPeriod::get() * 10u32.into() + 1u32.into(),
         );
-    }: _(RawOrigin::Signed(janitor.clone()), match_id)
+    }: _(RawOrigin::Signed(alice.clone()), match_id)
     verify {
         assert!(Chess::<T>::chess_matches(match_id).is_none());
         assert!(Chess::<T>::chess_match_id_from_nonce(0).is_none());
