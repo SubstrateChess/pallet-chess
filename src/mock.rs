@@ -107,6 +107,9 @@ impl pallet_assets::Config for Test {
 	type WeightInfo = ();
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<5>;
+	#[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
+    type CallbackHandle = ();
 }
 
 pub const ASSET_ID: u32 = 200u32;
