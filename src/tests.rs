@@ -579,3 +579,67 @@ fn janitor_incentive_works() {
         assert_eq!(final_balance_c, initial_balance_c + janitor_incentive);
     });
 }
+
+
+#[test]
+fn get_user_matches_works() {
+    new_test_ext().execute_with(|| {
+        let alice = account("Alice", 0, 0);
+        let bob = account("Bob", 0, 1);
+        let charlie = account("Charlie", 0, 2);
+
+        let bet_asset_id = AssetId::get();
+        let bet_amount = AssetMinBalance::get() * 5; // assuming T::IncentiveShare is 10%
+
+        assert_ok!(Chess::create_match(
+            RuntimeOrigin::signed(alice),
+            bob,
+            MatchStyle::Bullet,
+            bet_asset_id,
+            bet_amount
+        ));
+
+        let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+        let mut alice_matches = Chess::user_matches(alice);
+        let mut bob_matches = Chess::user_matches(bob);
+    
+        assert_eq!(alice_matches[0], match_id);
+        assert_eq!(bob_matches.len(), 0);
+
+        assert_ok!(Chess::join_match(
+            RuntimeOrigin::signed(bob),
+            match_id
+        ));
+        assert_ok!(Chess::create_match(
+            RuntimeOrigin::signed(alice),
+            charlie,
+            MatchStyle::Bullet,
+            bet_asset_id,
+            bet_amount
+        ));
+        let new_match_id = Chess::chess_match_id_from_nonce(1).unwrap();
+
+        alice_matches = Chess::user_matches(alice);
+        bob_matches = Chess::user_matches(bob);
+
+        assert_eq!(alice_matches[0], match_id);
+        assert_eq!(alice_matches[1], new_match_id);
+        assert_eq!(bob_matches[0], match_id);
+
+         // advance the block number to the point where bob's time-to-move is expired
+         System::set_block_number(
+            System::block_number() + <Test as Config>::BulletPeriod::get() + 1,
+        );
+
+        assert_ok!(Chess::clear_abandoned_match(
+            RuntimeOrigin::signed(alice),
+            match_id
+        ));
+
+        alice_matches = Chess::user_matches(alice);
+        bob_matches = Chess::user_matches(bob);
+        assert_eq!(alice_matches[0], new_match_id);
+        assert_eq!(bob_matches.len(), 0);
+
+    });
+}
