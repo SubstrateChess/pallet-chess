@@ -339,10 +339,10 @@ pub mod pallet {
             <Matches<T>>::insert(match_id, new_match);
             // Insert the match id into the user's match list
             let mut user_matches = <UserMatches<T>>::take(challenger.clone());
-			user_matches
-				.try_push(match_id)
-				.map_err(|_| Error::<T>::TooManyMatchesPerUser)?;
-			<UserMatches<T>>::insert(challenger.clone(), user_matches);
+            user_matches
+                .try_push(match_id)
+                .map_err(|_| Error::<T>::TooManyMatchesPerUser)?;
+            <UserMatches<T>>::insert(challenger.clone(), user_matches);
 
             <MatchIdFromNonce<T>>::insert(nonce, match_id);
             Self::increment_nonce()?;
