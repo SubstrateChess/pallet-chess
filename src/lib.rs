@@ -206,7 +206,13 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn user_matches)]
-    pub(super) type UserMatches<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, BoundedVec<T::Hash, T::MaxMatchesPerUser>, ValueQuery>;
+    pub(super) type UserMatches<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        T::AccountId,
+        BoundedVec<T::Hash, T::MaxMatchesPerUser>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn chess_match_id_from_nonce)]
