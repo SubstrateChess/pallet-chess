@@ -21,7 +21,7 @@ pub mod pallet {
     use crate::WeightInfo;
     use cozy_chess::{Board, Color, GameStatus, Move};
     use frame_support::{
-        pallet_prelude::{DispatchResult, *, ValueQuery},
+        pallet_prelude::{DispatchResult, ValueQuery, *},
         sp_runtime::{
             traits::{AccountIdConversion, Hash},
             FixedPointOperand, Percent, Saturating,
