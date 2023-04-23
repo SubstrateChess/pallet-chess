@@ -243,8 +243,8 @@ pub mod pallet {
         type IncentiveShare: Get<u8>;
 
         /// The maximum number matches per user.
-		#[pallet::constant]
-		type MaxMatchesPerUser: Get<u32>;
+        #[pallet::constant]
+        type MaxMatchesPerUser: Get<u32>;
     }
 
     pub trait ConfigHelper: Config {
