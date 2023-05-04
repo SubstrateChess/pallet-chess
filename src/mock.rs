@@ -107,6 +107,7 @@ impl pallet_assets::Config for Test {
     type WeightInfo = ();
     type Extra = ();
     type RemoveItemsLimit = ConstU32<5>;
+    type CallbackHandle = ();
 }
 
 pub const ASSET_ID: u32 = 200u32;
