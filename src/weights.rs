@@ -52,7 +52,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Chess MatchIdFromNonce (r:0 w:1)
 	fn create_match() -> Weight {
 		// Minimum execution time: 88_030 nanoseconds.
-		Weight::from_ref_time(91_090_000)
+		Weight::from_parts(91_090_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(7))
 	}
@@ -63,7 +63,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Chess MatchIdFromNonce (r:0 w:1)
 	fn abort_match() -> Weight {
 		// Minimum execution time: 82_190 nanoseconds.
-		Weight::from_ref_time(83_430_000)
+		Weight::from_parts(83_430_000, 0)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -72,7 +72,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Assets Account (r:2 w:2)
 	fn join_match() -> Weight {
 		// Minimum execution time: 70_710 nanoseconds.
-		Weight::from_ref_time(72_110_000)
+		Weight::from_parts(72_110_000, 0)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
@@ -80,7 +80,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// read `pallet-chess/docs` to understand how this weight was calculated.
 	fn make_move() -> Weight {
 		// Minimum execution time: 35_470 nanoseconds.
-		Weight::from_ref_time(116_079_054)
+		Weight::from_parts(116_079_054, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -91,7 +91,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Chess MatchIdFromNonce (r:0 w:1)
 	fn clear_abandoned_match() -> Weight {
 		// Minimum execution time: 120_950 nanoseconds.
-		Weight::from_ref_time(122_610_000)
+		Weight::from_parts(122_610_000, 0)
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(8))
 	}
@@ -106,7 +106,7 @@ impl WeightInfo for () {
 	// Storage: Chess MatchIdFromNonce (r:0 w:1)
 	fn create_match() -> Weight {
 		// Minimum execution time: 88_030 nanoseconds.
-		Weight::from_ref_time(91_090_000)
+		Weight::from_parts(91_090_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(7))
 	}
@@ -117,7 +117,7 @@ impl WeightInfo for () {
 	// Storage: Chess MatchIdFromNonce (r:0 w:1)
 	fn abort_match() -> Weight {
 		// Minimum execution time: 82_190 nanoseconds.
-		Weight::from_ref_time(83_430_000)
+		Weight::from_parts(83_430_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
@@ -126,7 +126,7 @@ impl WeightInfo for () {
 	// Storage: Assets Account (r:2 w:2)
 	fn join_match() -> Weight {
 		// Minimum execution time: 70_710 nanoseconds.
-		Weight::from_ref_time(72_110_000)
+		Weight::from_parts(72_110_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(4))
 	}
@@ -134,7 +134,7 @@ impl WeightInfo for () {
 	// read `pallet-chess/docs` to understand how this weight was calculated.
 	fn make_move() -> Weight {
 		// Minimum execution time: 35_470 nanoseconds.
-		Weight::from_ref_time(116_079_054)
+		Weight::from_parts(116_079_054, 0)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -145,7 +145,7 @@ impl WeightInfo for () {
 	// Storage: Chess MatchIdFromNonce (r:0 w:1)
 	fn clear_abandoned_match() -> Weight {
 		// Minimum execution time: 120_950 nanoseconds.
-		Weight::from_ref_time(122_610_000)
+		Weight::from_parts(122_610_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(7))
 			.saturating_add(RocksDbWeight::get().writes(8))
 	}
