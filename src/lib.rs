@@ -192,7 +192,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
-    // https://stackoverflow.com/questions/70206199/substrate-tutorials-trait-maxencodedlen-is-not-implemented-for-vecu8
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
