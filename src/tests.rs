@@ -600,7 +600,7 @@ fn get_player_matches_works() {
 
         let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
         let mut alice_matches = PlayerMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
-        let mut bob_matches =  PlayerMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
+        let mut bob_matches = PlayerMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
 
         assert_eq!(alice_matches[0], match_id);
         assert_eq!(bob_matches.len(), 0);

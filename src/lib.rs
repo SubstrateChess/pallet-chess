@@ -206,15 +206,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn player_matches)]
-    pub(super) type PlayerMatches<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        T::AccountId,
-        Twox64Concat, 
-        T::Hash,
-        (),
-        OptionQuery,
-    >;
+    pub(super) type PlayerMatches<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, T::Hash, (), OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn chess_match_id_from_nonce)]
