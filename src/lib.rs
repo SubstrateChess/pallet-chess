@@ -206,12 +206,14 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn user_matches)]
-    pub(super) type UserMatches<T: Config> = StorageMap<
+    pub(super) type UserMatches<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         T::AccountId,
-        BoundedVec<T::Hash, T::MaxMatchesPerUser>,
-        ValueQuery,
+        Twox64Concat, 
+        T::Hash,
+        (),
+        OptionQuery,
     >;
 
     #[pallet::storage]
@@ -337,14 +339,9 @@ pub mod pallet {
 
             let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
             <Matches<T>>::insert(match_id, new_match);
-            // Insert the match id into the user's match list
-            let mut user_matches = <UserMatches<T>>::take(challenger.clone());
-            user_matches
-                .try_push(match_id)
-                .map_err(|_| Error::<T>::TooManyMatchesPerUser)?;
-            <UserMatches<T>>::insert(challenger.clone(), user_matches);
-
+            <UserMatches<T>>::insert(challenger.clone(), match_id, ());
             <MatchIdFromNonce<T>>::insert(nonce, match_id);
+
             Self::increment_nonce()?;
 
             Self::deposit_event(Event::MatchCreated(challenger, opponent, match_id));
@@ -373,15 +370,7 @@ pub mod pallet {
             chess_match.abort_bet()?;
 
             <Matches<T>>::remove(match_id);
-            // Remove the match id from the user's match list
-            let mut user_matches = <UserMatches<T>>::take(who.clone());
-            user_matches.sort();
-            let pos = user_matches
-				.binary_search(&match_id)
-				.ok().ok_or(Error::<T>::NonExistentMatch)?;
-			user_matches.remove(pos);
-			<UserMatches<T>>::insert(who.clone(), user_matches);
-
+            <UserMatches<T>>::remove(who.clone(), match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Self::deposit_event(Event::MatchAborted(match_id));
@@ -408,12 +397,8 @@ pub mod pallet {
             chess_match.state = MatchState::OnGoing(NextMove::Whites);
             chess_match.start = <frame_system::Pallet<T>>::block_number();
             <Matches<T>>::insert(match_id, chess_match);
-            // Insert the match id into the user's match list
-            let mut user_matches = <UserMatches<T>>::take(who.clone());
-			user_matches
-				.try_push(match_id)
-				.map_err(|_| Error::<T>::TooManyMatchesPerUser)?;
-			<UserMatches<T>>::insert(who, user_matches);
+
+            <UserMatches<T>>::insert(who, match_id, ());
 
             Self::deposit_event(Event::MatchStarted(match_id));
 
@@ -494,23 +479,8 @@ pub mod pallet {
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-                 // Remove the match id from the user's challenger match list
-                let mut user_matches_challenger = <UserMatches<T>>::take(chess_match.challenger.clone());
-                user_matches_challenger.sort();
-                let pos = user_matches_challenger
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_challenger.remove(pos);
-                <UserMatches<T>>::insert(chess_match.challenger, user_matches_challenger);
-                // Remove the match id from the user's opponent match list
-                let mut user_matches_opponent = <UserMatches<T>>::take(chess_match.opponent.clone());
-                user_matches_opponent.sort();
-                let pos = user_matches_opponent
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_opponent.remove(pos);
-                <UserMatches<T>>::insert(chess_match.opponent, user_matches_opponent);
-
+                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <UserMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else if chess_match.state == MatchState::Drawn {
                 Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
@@ -520,24 +490,8 @@ pub mod pallet {
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-
-                 // Remove the match id from the user's challenger match list
-                let mut user_matches_challenger = <UserMatches<T>>::take(chess_match.challenger.clone());
-                user_matches_challenger.sort();
-                let pos = user_matches_challenger
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_challenger.remove(pos);
-                <UserMatches<T>>::insert(chess_match.challenger, user_matches_challenger);
-                // Remove the match id from the user's opponent match list
-                let mut user_matches_opponent = <UserMatches<T>>::take(chess_match.opponent.clone());
-                user_matches_opponent.sort();
-                let pos = user_matches_opponent
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_opponent.remove(pos);
-                <UserMatches<T>>::insert(chess_match.opponent, user_matches_opponent);
-
+                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <UserMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else {
                 // match still ongoing, update on-chain board
@@ -610,24 +564,8 @@ pub mod pallet {
             }
 
             <Matches<T>>::remove(match_id);
-
-             // Remove the match id from the user's challenger match list
-             let mut user_matches_challenger = <UserMatches<T>>::take(chess_match.challenger.clone());
-             user_matches_challenger.sort();
-             let pos = user_matches_challenger
-                 .binary_search(&match_id)
-                 .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                user_matches_challenger.remove(pos);
-             <UserMatches<T>>::insert(chess_match.challenger, user_matches_challenger);
-             // Remove the match id from the user's opponent match list
-             let mut user_matches_opponent = <UserMatches<T>>::take(chess_match.opponent.clone());
-             user_matches_opponent.sort();
-             let pos = user_matches_opponent
-                 .binary_search(&match_id)
-                 .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                user_matches_opponent.remove(pos);
-             <UserMatches<T>>::insert(chess_match.opponent, user_matches_opponent);
-
+            <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+            <UserMatches<T>>::remove(chess_match.opponent, match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Ok(())
@@ -704,46 +642,14 @@ pub mod pallet {
             if chess_match.state == MatchState::Won {
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-
-                  // Remove the match id from the user's challenger match list
-                let mut user_matches_challenger = <UserMatches<T>>::take(chess_match.challenger.clone());
-                user_matches_challenger.sort();
-                let pos = user_matches_challenger
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_challenger.remove(pos);
-                <UserMatches<T>>::insert(chess_match.challenger, user_matches_challenger);
-                // Remove the match id from the user's opponent match list
-                let mut user_matches_opponent = <UserMatches<T>>::take(chess_match.opponent.clone());
-                user_matches_opponent.sort();
-                let pos = user_matches_opponent
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_opponent.remove(pos);
-                <UserMatches<T>>::insert(chess_match.opponent, user_matches_opponent);
-
+                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <UserMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else if chess_match.state == MatchState::Drawn {
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-
-                  // Remove the match id from the user's challenger match list
-                let mut user_matches_challenger = <UserMatches<T>>::take(chess_match.challenger.clone());
-                user_matches_challenger.sort();
-                let pos = user_matches_challenger
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_challenger.remove(pos);
-                <UserMatches<T>>::insert(chess_match.challenger, user_matches_challenger);
-                // Remove the match id from the user's opponent match list
-                let mut user_matches_opponent = <UserMatches<T>>::take(chess_match.opponent.clone());
-                user_matches_opponent.sort();
-                let pos = user_matches_opponent
-                    .binary_search(&match_id)
-                    .ok().ok_or(Error::<T>::NonExistentMatch)?;
-                    user_matches_opponent.remove(pos);
-                <UserMatches<T>>::insert(chess_match.opponent, user_matches_opponent);
-
+                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <UserMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else {
                 // match still ongoing, update on-chain board

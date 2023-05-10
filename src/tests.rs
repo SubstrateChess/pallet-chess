@@ -1,4 +1,4 @@
-use crate::{mock::*, Config, Error, Event, MatchState, MatchStyle, NextMove};
+use crate::{mock::*, Config, Error, Event, MatchState, MatchStyle, NextMove, UserMatches};
 use cozy_chess::Board;
 use frame_benchmarking::account;
 use frame_support::{assert_noop, assert_ok};
@@ -580,7 +580,6 @@ fn janitor_incentive_works() {
     });
 }
 
-
 #[test]
 fn get_user_matches_works() {
     new_test_ext().execute_with(|| {
@@ -600,16 +599,13 @@ fn get_user_matches_works() {
         ));
 
         let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
-        let mut alice_matches = Chess::user_matches(alice);
-        let mut bob_matches = Chess::user_matches(bob);
-    
+        let mut alice_matches = UserMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
+        let mut bob_matches =  UserMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
+
         assert_eq!(alice_matches[0], match_id);
         assert_eq!(bob_matches.len(), 0);
 
-        assert_ok!(Chess::join_match(
-            RuntimeOrigin::signed(bob),
-            match_id
-        ));
+        assert_ok!(Chess::join_match(RuntimeOrigin::signed(bob), match_id));
         assert_ok!(Chess::create_match(
             RuntimeOrigin::signed(alice),
             charlie,
@@ -619,15 +615,15 @@ fn get_user_matches_works() {
         ));
         let new_match_id = Chess::chess_match_id_from_nonce(1).unwrap();
 
-        alice_matches = Chess::user_matches(alice);
-        bob_matches = Chess::user_matches(bob);
+        alice_matches = UserMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
+        bob_matches = UserMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
 
         assert_eq!(alice_matches[0], match_id);
         assert_eq!(alice_matches[1], new_match_id);
         assert_eq!(bob_matches[0], match_id);
 
-         // advance the block number to the point where bob's time-to-move is expired
-         System::set_block_number(
+        // advance the block number to the point where bob's time-to-move is expired
+        System::set_block_number(
             System::block_number() + <Test as Config>::BulletPeriod::get() + 1,
         );
 
@@ -636,10 +632,9 @@ fn get_user_matches_works() {
             match_id
         ));
 
-        alice_matches = Chess::user_matches(alice);
-        bob_matches = Chess::user_matches(bob);
+        alice_matches = UserMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
+        bob_matches = UserMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
         assert_eq!(alice_matches[0], new_match_id);
         assert_eq!(bob_matches.len(), 0);
-
     });
 }
