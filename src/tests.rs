@@ -1,4 +1,4 @@
-use crate::{mock::*, Config, Error, Event, MatchState, MatchStyle, NextMove, UserMatches};
+use crate::{mock::*, Config, Error, Event, MatchState, MatchStyle, NextMove, PlayerMatches};
 use cozy_chess::Board;
 use frame_benchmarking::account;
 use frame_support::{assert_noop, assert_ok};
@@ -581,7 +581,7 @@ fn janitor_incentive_works() {
 }
 
 #[test]
-fn get_user_matches_works() {
+fn get_player_matches_works() {
     new_test_ext().execute_with(|| {
         let alice = account("Alice", 0, 0);
         let bob = account("Bob", 0, 1);
@@ -599,8 +599,8 @@ fn get_user_matches_works() {
         ));
 
         let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
-        let mut alice_matches = UserMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
-        let mut bob_matches =  UserMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
+        let mut alice_matches = PlayerMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
+        let mut bob_matches =  PlayerMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
 
         assert_eq!(alice_matches[0], match_id);
         assert_eq!(bob_matches.len(), 0);
@@ -615,8 +615,8 @@ fn get_user_matches_works() {
         ));
         let new_match_id = Chess::chess_match_id_from_nonce(1).unwrap();
 
-        alice_matches = UserMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
-        bob_matches = UserMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
+        alice_matches = PlayerMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
+        bob_matches = PlayerMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
 
         assert_eq!(alice_matches[0], match_id);
         assert_eq!(alice_matches[1], new_match_id);
@@ -632,8 +632,8 @@ fn get_user_matches_works() {
             match_id
         ));
 
-        alice_matches = UserMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
-        bob_matches = UserMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
+        alice_matches = PlayerMatches::<Test>::iter_key_prefix(alice).collect::<Vec<_>>();
+        bob_matches = PlayerMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
         assert_eq!(alice_matches[0], new_match_id);
         assert_eq!(bob_matches.len(), 0);
     });

@@ -62,7 +62,6 @@ parameter_types! {
     pub const DailyPeriod: u64 = 14400;
     pub const ChessPalletId: PalletId = PalletId(*b"subchess");
     pub const IncentiveShare: u8 = 10; // janitor gets 10% of the prize
-    pub const MaxMatchesPerUser: u32 = 100;
 }
 
 impl pallet_chess::Config for Test {
@@ -76,7 +75,6 @@ impl pallet_chess::Config for Test {
     type RapidPeriod = RapidPeriod;
     type DailyPeriod = DailyPeriod;
     type IncentiveShare = IncentiveShare;
-    type MaxMatchesPerUser = MaxMatchesPerUser;
 }
 
 impl pallet_balances::Config for Test {

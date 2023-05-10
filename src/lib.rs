@@ -205,8 +205,8 @@ pub mod pallet {
     pub(super) type Matches<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Match<T>>;
 
     #[pallet::storage]
-    #[pallet::getter(fn user_matches)]
-    pub(super) type UserMatches<T: Config> = StorageDoubleMap<
+    #[pallet::getter(fn player_matches)]
+    pub(super) type PlayerMatches<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         T::AccountId,
@@ -249,10 +249,6 @@ pub mod pallet {
 
         #[pallet::constant]
         type IncentiveShare: Get<u8>;
-
-        /// The maximum number matches per user.
-        #[pallet::constant]
-        type MaxMatchesPerUser: Get<u32>;
     }
 
     pub trait ConfigHelper: Config {
@@ -298,7 +294,6 @@ pub mod pallet {
         MatchNotOnGoing,
         MatchNotAbandoned,
         MoveNotExpired,
-        TooManyMatchesPerUser,
     }
 
     const MOVE_FEN_LENGTH: usize = 4;
@@ -339,7 +334,7 @@ pub mod pallet {
 
             let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
             <Matches<T>>::insert(match_id, new_match);
-            <UserMatches<T>>::insert(challenger.clone(), match_id, ());
+            <PlayerMatches<T>>::insert(challenger.clone(), match_id, ());
             <MatchIdFromNonce<T>>::insert(nonce, match_id);
 
             Self::increment_nonce()?;
@@ -370,7 +365,7 @@ pub mod pallet {
             chess_match.abort_bet()?;
 
             <Matches<T>>::remove(match_id);
-            <UserMatches<T>>::remove(who.clone(), match_id);
+            <PlayerMatches<T>>::remove(who.clone(), match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Self::deposit_event(Event::MatchAborted(match_id));
@@ -398,7 +393,7 @@ pub mod pallet {
             chess_match.start = <frame_system::Pallet<T>>::block_number();
             <Matches<T>>::insert(match_id, chess_match);
 
-            <UserMatches<T>>::insert(who, match_id, ());
+            <PlayerMatches<T>>::insert(who, match_id, ());
 
             Self::deposit_event(Event::MatchStarted(match_id));
 
@@ -479,8 +474,8 @@ pub mod pallet {
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
-                <UserMatches<T>>::remove(chess_match.opponent, match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else if chess_match.state == MatchState::Drawn {
                 Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
@@ -490,8 +485,8 @@ pub mod pallet {
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
-                <UserMatches<T>>::remove(chess_match.opponent, match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else {
                 // match still ongoing, update on-chain board
@@ -564,8 +559,8 @@ pub mod pallet {
             }
 
             <Matches<T>>::remove(match_id);
-            <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
-            <UserMatches<T>>::remove(chess_match.opponent, match_id);
+            <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+            <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Ok(())
@@ -642,14 +637,14 @@ pub mod pallet {
             if chess_match.state == MatchState::Won {
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
-                <UserMatches<T>>::remove(chess_match.opponent, match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else if chess_match.state == MatchState::Drawn {
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
-                <UserMatches<T>>::remove(chess_match.challenger.clone(), match_id);
-                <UserMatches<T>>::remove(chess_match.opponent, match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else {
                 // match still ongoing, update on-chain board
