@@ -21,7 +21,7 @@ pub mod pallet {
     use crate::WeightInfo;
     use cozy_chess::{Board, Color, GameStatus, Move};
     use frame_support::{
-        pallet_prelude::{DispatchResult, *},
+        pallet_prelude::{DispatchResult, ValueQuery, *},
         sp_runtime::{
             traits::{AccountIdConversion, Hash},
             FixedPointOperand, Percent, Saturating,
@@ -203,6 +203,11 @@ pub mod pallet {
     pub(super) type Matches<T: Config> = StorageMap<_, Twox64Concat, T::Hash, Match<T>>;
 
     #[pallet::storage]
+    #[pallet::getter(fn player_matches)]
+    pub(super) type PlayerMatches<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, T::Hash, (), OptionQuery>;
+
+    #[pallet::storage]
     #[pallet::getter(fn chess_match_id_from_nonce)]
     pub(super) type MatchIdFromNonce<T: Config> = StorageMap<_, Twox64Concat, u128, T::Hash>;
 
@@ -320,7 +325,9 @@ pub mod pallet {
 
             let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
             <Matches<T>>::insert(match_id, new_match);
+            <PlayerMatches<T>>::insert(challenger.clone(), match_id, ());
             <MatchIdFromNonce<T>>::insert(nonce, match_id);
+
             Self::increment_nonce()?;
 
             Self::deposit_event(Event::MatchCreated(challenger, opponent, match_id));
@@ -349,6 +356,7 @@ pub mod pallet {
             chess_match.abort_bet()?;
 
             <Matches<T>>::remove(match_id);
+            <PlayerMatches<T>>::remove(who.clone(), match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Self::deposit_event(Event::MatchAborted(match_id));
@@ -375,6 +383,8 @@ pub mod pallet {
             chess_match.state = MatchState::OnGoing(NextMove::Whites);
             chess_match.start = <frame_system::Pallet<T>>::block_number();
             <Matches<T>>::insert(match_id, chess_match);
+
+            <PlayerMatches<T>>::insert(who, match_id, ());
 
             Self::deposit_event(Event::MatchStarted(match_id));
 
@@ -455,6 +465,8 @@ pub mod pallet {
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else if chess_match.state == MatchState::Drawn {
                 Self::deposit_event(Event::MatchDrawn(match_id, chess_match.board.clone()));
@@ -464,6 +476,8 @@ pub mod pallet {
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else {
                 // match still ongoing, update on-chain board
@@ -536,6 +550,8 @@ pub mod pallet {
             }
 
             <Matches<T>>::remove(match_id);
+            <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+            <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Ok(())
@@ -612,10 +628,14 @@ pub mod pallet {
             if chess_match.state == MatchState::Won {
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else if chess_match.state == MatchState::Drawn {
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
+                <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
+                <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
                 <MatchIdFromNonce<T>>::remove(chess_match.nonce);
             } else {
                 // match still ongoing, update on-chain board
