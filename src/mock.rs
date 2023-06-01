@@ -125,7 +125,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     let asset_id = AssetId::get();
     let asset_min_balance = AssetMinBalance::get();
 
-    let config: pallet_assets::GenesisConfig<Test> = pallet_assets::GenesisConfig {
+    pallet_assets::GenesisConfig::<Test> {
         assets: vec![
             // id, owner, is_sufficient, min_balance
             (asset_id, 0, true, asset_min_balance),
@@ -147,7 +147,18 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 asset_min_balance * 100,
             ),
         ],
-    };
-    config.assimilate_storage(&mut storage).unwrap();
+    }
+    .assimilate_storage(&mut storage)
+    .unwrap();
+
+    pallet_chess::GenesisConfig::<Test> {
+        elo: vec![
+            (frame_benchmarking::account("Alice", 0, 0), 2000),
+            (frame_benchmarking::account("Bob", 0, 1), 2400),
+        ],
+    }
+    .assimilate_storage(&mut storage)
+    .unwrap();
+
     storage.into()
 }
