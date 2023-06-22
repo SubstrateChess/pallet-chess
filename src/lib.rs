@@ -27,8 +27,8 @@ pub mod pallet {
             FixedPointOperand, Percent, Saturating,
         },
         traits::{
-            fungibles::{Inspect, Transfer},
-            tokens::Balance,
+            fungibles::{Inspect, Mutate},
+            tokens::{Balance, Preservation},
         },
         PalletId,
     };
@@ -102,7 +102,7 @@ pub mod pallet {
                 &self.challenger,
                 &T::pallet_account(),
                 self.bet_amount,
-                false,
+                Preservation::Expendable,
             )?;
             Ok(())
         }
@@ -113,7 +113,7 @@ pub mod pallet {
                 &self.opponent,
                 &T::pallet_account(),
                 self.bet_amount,
-                false,
+                Preservation::Expendable,
             )?;
             Ok(())
         }
@@ -124,7 +124,7 @@ pub mod pallet {
                 &T::pallet_account(),
                 &self.challenger,
                 self.bet_amount,
-                false,
+                Preservation::Expendable,
             )?;
             Ok(())
         }
@@ -135,14 +135,14 @@ pub mod pallet {
                 &T::pallet_account(),
                 &self.challenger,
                 self.bet_amount,
-                false,
+                Preservation::Expendable,
             )?;
             T::Assets::transfer(
                 self.bet_asset_id,
                 &T::pallet_account(),
                 &self.opponent,
                 self.bet_amount,
-                false,
+                Preservation::Expendable,
             )?;
             Ok(())
         }
@@ -154,7 +154,7 @@ pub mod pallet {
                 &T::pallet_account(),
                 winner,
                 win_amount,
-                false,
+                Preservation::Expendable,
             )?;
             Ok(())
         }
@@ -170,14 +170,14 @@ pub mod pallet {
                 &T::pallet_account(),
                 janitor,
                 janitor_incentive,
-                false,
+                Preservation::Expendable,
             )?;
             T::Assets::transfer(
                 self.bet_asset_id,
                 &T::pallet_account(),
                 winner,
                 actual_prize,
-                false,
+                Preservation::Expendable,
             )?;
             Ok(())
         }
@@ -219,7 +219,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
         type Assets: Inspect<Self::AccountId, Balance = Self::AssetBalance>
-            + Transfer<Self::AccountId>;
+            + Mutate<Self::AccountId>;
         type AssetBalance: Balance
             + FixedPointOperand
             + MaxEncodedLen
