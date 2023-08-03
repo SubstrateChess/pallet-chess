@@ -603,7 +603,7 @@ fn get_player_matches_works() {
         let mut bob_matches = PlayerMatches::<Test>::iter_key_prefix(bob).collect::<Vec<_>>();
 
         assert_eq!(alice_matches[0], match_id);
-        assert_eq!(bob_matches.len(), 0);
+        assert_eq!(bob_matches[0], match_id);
 
         assert_ok!(Chess::join_match(RuntimeOrigin::signed(bob), match_id));
         assert_ok!(Chess::create_match(
