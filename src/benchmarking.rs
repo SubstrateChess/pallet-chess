@@ -11,6 +11,7 @@ use crate::Pallet as Chess;
 use frame_benchmarking::{account, benchmarks, vec, Vec};
 use frame_system::{Pallet as System, RawOrigin};
 //use pallet_assets::Pallet as Assets;
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::{format, string::String};
 use sp_core::Get;
 use sp_runtime::SaturatedConversion;
@@ -205,7 +206,7 @@ benchmarks! {
         where
             AssetIdOf<T>: From<u32>,
             BalanceOf<T>: From<u64>,
-            T::BlockNumber: From<u32>,
+            BlockNumberFor<T>: From<u32>,
             // T: pallet_assets::Config,
             // <T as pallet_assets::Config>::AssetId: From<u32>,
             // <T as pallet_assets::Config>::Balance: From<u64>,

@@ -77,28 +77,28 @@ pub mod pallet {
         pub state: MatchState,
         pub nonce: u128,
         pub style: MatchStyle,
-        pub last_move: T::BlockNumber,
-        pub start: T::BlockNumber,
+        pub last_move: BlockNumberFor<T>,
+        pub start: BlockNumberFor<T>,
         pub bet_asset_id: AssetIdOf<T>,
         pub bet_amount: T::AssetBalance,
     }
 
     impl<T: Config> Match<T> {
         fn challenger_bet(&self) -> DispatchResult {
-            if !T::Assets::asset_exists(self.bet_asset_id) {
+            if !T::Assets::asset_exists(self.bet_asset_id.clone()) {
                 return Err(Error::<T>::BetDoesNotExist.into());
             }
 
             // bet must cover janitor incentives
             if Percent::from_percent(T::IncentiveShare::get())
                 * self.bet_amount.saturating_add(self.bet_amount)
-                < T::Assets::minimum_balance(self.bet_asset_id)
+                < T::Assets::minimum_balance(self.bet_asset_id.clone())
             {
                 return Err(Error::<T>::BetTooLow.into());
             }
 
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &self.challenger,
                 &T::pallet_account(),
                 self.bet_amount,
@@ -109,7 +109,7 @@ pub mod pallet {
 
         fn opponent_bet(&self) -> DispatchResult {
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &self.opponent,
                 &T::pallet_account(),
                 self.bet_amount,
@@ -120,7 +120,7 @@ pub mod pallet {
 
         fn abort_bet(&self) -> DispatchResult {
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &T::pallet_account(),
                 &self.challenger,
                 self.bet_amount,
@@ -131,14 +131,14 @@ pub mod pallet {
 
         fn refund_bets(&self) -> DispatchResult {
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &T::pallet_account(),
                 &self.challenger,
                 self.bet_amount,
                 Preservation::Expendable,
             )?;
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &T::pallet_account(),
                 &self.opponent,
                 self.bet_amount,
@@ -150,7 +150,7 @@ pub mod pallet {
         fn win_bet(&self, winner: &T::AccountId) -> DispatchResult {
             let win_amount = self.bet_amount.saturating_add(self.bet_amount);
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &T::pallet_account(),
                 winner,
                 win_amount,
@@ -166,14 +166,14 @@ pub mod pallet {
         ) -> DispatchResult {
             let (janitor_incentive, actual_prize) = self.janitor_incentive();
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &T::pallet_account(),
                 janitor,
                 janitor_incentive,
                 Preservation::Expendable,
             )?;
             T::Assets::transfer(
-                self.bet_asset_id,
+                self.bet_asset_id.clone(),
                 &T::pallet_account(),
                 winner,
                 actual_prize,
@@ -227,16 +227,16 @@ pub mod pallet {
             + TypeInfo;
 
         #[pallet::constant]
-        type BulletPeriod: Get<Self::BlockNumber>;
+        type BulletPeriod: Get<BlockNumberFor<Self>>;
 
         #[pallet::constant]
-        type BlitzPeriod: Get<Self::BlockNumber>;
+        type BlitzPeriod: Get<BlockNumberFor<Self>>;
 
         #[pallet::constant]
-        type RapidPeriod: Get<Self::BlockNumber>;
+        type RapidPeriod: Get<BlockNumberFor<Self>>;
 
         #[pallet::constant]
-        type DailyPeriod: Get<Self::BlockNumber>;
+        type DailyPeriod: Get<BlockNumberFor<Self>>;
 
         #[pallet::constant]
         type IncentiveShare: Get<u8>;
