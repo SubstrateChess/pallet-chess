@@ -326,6 +326,7 @@ pub mod pallet {
             let match_id = Self::match_id(challenger.clone(), opponent.clone(), nonce.clone());
             <Matches<T>>::insert(match_id, new_match);
             <PlayerMatches<T>>::insert(challenger.clone(), match_id, ());
+            <PlayerMatches<T>>::insert(opponent.clone(), match_id, ());
             <MatchIdFromNonce<T>>::insert(nonce, match_id);
 
             Self::increment_nonce()?;
@@ -357,6 +358,7 @@ pub mod pallet {
 
             <Matches<T>>::remove(match_id);
             <PlayerMatches<T>>::remove(who.clone(), match_id);
+            <PlayerMatches<T>>::remove(chess_match.opponent, match_id);
             <MatchIdFromNonce<T>>::remove(chess_match.nonce);
 
             Self::deposit_event(Event::MatchAborted(match_id));
@@ -383,8 +385,6 @@ pub mod pallet {
             chess_match.state = MatchState::OnGoing(NextMove::Whites);
             chess_match.start = <frame_system::Pallet<T>>::block_number();
             <Matches<T>>::insert(match_id, chess_match);
-
-            <PlayerMatches<T>>::insert(who, match_id, ());
 
             Self::deposit_event(Event::MatchStarted(match_id));
 
