@@ -29,6 +29,7 @@ pub mod pallet {
         traits::{
             fungibles::{Inspect, Mutate},
             tokens::{Balance, Preservation},
+            BuildGenesisConfig,
         },
         PalletId,
     };
@@ -38,10 +39,6 @@ pub mod pallet {
         str::{from_utf8, FromStr},
         vec::Vec,
     };
-
-    /// Elo constant
-    /// See https://metinmediamath.wordpress.com/2013/11/27/how-to-calculate-the-elo-rating-including-example/
-    const K: f32 = 32_f32;
 
     pub type AssetIdOf<T> =
         <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
@@ -233,6 +230,11 @@ pub mod pallet {
         #[pallet::constant]
         type PalletId: Get<PalletId>;
 
+        /// Elo constant
+        /// See https://metinmediamath.wordpress.com/2013/11/27/how-to-calculate-the-elo-rating-including-example/
+        #[pallet::constant]
+        type K: Get<u16>;
+
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
         type Assets: Inspect<Self::AccountId, Balance = Self::AssetBalance>
@@ -321,7 +323,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             for (account, elo) in &self.elo {
                 <PlayerElo<T>>::insert(account, elo);
@@ -725,8 +727,10 @@ pub mod pallet {
                 &transformed_rating1 / (&transformed_rating1 + &transformed_rating2);
             let expected_score2 =
                 &transformed_rating2 / (&transformed_rating1 + &transformed_rating2);
-            let new_rating1 = (&rating1 + K * (score_1 - expected_score1)).round() as u16;
-            let new_rating2 = (&rating2 + K * (score_2 - expected_score2)).round() as u16;
+            let new_rating1 =
+                (&rating1 + T::K::get() as f32 * (score_1 - expected_score1)).round() as u16;
+            let new_rating2 =
+                (&rating2 + T::K::get() as f32 * (score_2 - expected_score2)).round() as u16;
             <PlayerElo<T>>::insert(&player1, new_rating1);
             <PlayerElo<T>>::insert(&player2, new_rating2);
         }

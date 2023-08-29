@@ -60,6 +60,7 @@ parameter_types! {
 
 impl pallet_chess::Config for Test {
     type PalletId = ChessPalletId;
+    type K = ConstU16<32>;
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_chess::weights::SubstrateWeight<Test>;
     type Assets = Assets;
