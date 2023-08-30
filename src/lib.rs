@@ -29,6 +29,7 @@ pub mod pallet {
         traits::{
             fungibles::{Inspect, Mutate},
             tokens::{Balance, Preservation},
+            BuildGenesisConfig,
         },
         PalletId,
     };
@@ -43,6 +44,14 @@ pub mod pallet {
         <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
     pub type BalanceOf<T> =
         <<T as Config>::Assets as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+    type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+    pub struct DefaultElo;
+    impl Get<u16> for DefaultElo {
+        fn get() -> u16 {
+            1600
+        }
+    }
 
     #[derive(Clone, Debug, Encode, Decode, TypeInfo, PartialEq)]
     pub enum MatchStyle {
@@ -211,10 +220,20 @@ pub mod pallet {
     #[pallet::getter(fn chess_match_id_from_nonce)]
     pub(super) type MatchIdFromNonce<T: Config> = StorageMap<_, Twox64Concat, u128, T::Hash>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn player_elo)]
+    pub(super) type PlayerElo<T: Config> =
+        StorageMap<_, Twox64Concat, T::AccountId, u16, ValueQuery, DefaultElo>;
+
     #[pallet::config]
     pub trait Config: frame_system::Config {
         #[pallet::constant]
         type PalletId: Get<PalletId>;
+
+        /// Elo constant
+        /// See https://metinmediamath.wordpress.com/2013/11/27/how-to-calculate-the-elo-rating-including-example/
+        #[pallet::constant]
+        type K: Get<u16>;
 
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
@@ -288,6 +307,29 @@ pub mod pallet {
     }
 
     const MOVE_FEN_LENGTH: usize = 4;
+
+    type GenesisInfo<T> = (AccountIdOf<T>, u16);
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub elo: Vec<GenesisInfo<T>>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> GenesisConfig<T> {
+            GenesisConfig { elo: vec![] }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+        fn build(&self) {
+            for (account, elo) in &self.elo {
+                <PlayerElo<T>>::insert(account, elo);
+            }
+        }
+    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -405,7 +447,7 @@ pub mod pallet {
                 Error::<T>::InvalidMoveEncoding
             );
 
-            let mut chess_match = match Self::chess_matches(match_id) {
+            let mut chess_match: Match<T> = match Self::chess_matches(match_id) {
                 Some(m) => m,
                 None => return Err(Error::<T>::NonExistentMatch.into()),
             };
@@ -463,6 +505,19 @@ pub mod pallet {
                 // winner gets both deposits
                 chess_match.win_bet(&who)?;
 
+                // update elo rating
+                let (score_1, score_2) = if chess_match.challenger == who {
+                    (1_f32, 0_f32)
+                } else {
+                    (0_f32, 1_f32)
+                };
+                Self::update_elo(
+                    chess_match.challenger.clone(),
+                    score_1,
+                    chess_match.opponent.clone(),
+                    score_2,
+                );
+
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
                 <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
@@ -473,6 +528,14 @@ pub mod pallet {
 
                 // return deposit to both players
                 chess_match.refund_bets()?;
+
+                // update elo rating
+                Self::update_elo(
+                    chess_match.challenger.clone(),
+                    0.5,
+                    chess_match.opponent.clone(),
+                    0.5,
+                );
 
                 // match is over, clean up storage
                 <Matches<T>>::remove(match_id);
@@ -536,18 +599,28 @@ pub mod pallet {
                 // winner gets both deposits before match becomes abandoned
                 match chess_match.win_bet(&winner) {
                     Ok(()) => {}
-                    Err(_) => Self::deposit_event(Event::MatchAwardError(match_id, winner)),
+                    Err(_) => Self::deposit_event(Event::MatchAwardError(match_id, winner.clone())),
                 }
             } else {
                 // who cleared the match after match is abandoned gets the incentive,
                 // and the winner gets both deposits minus the incentive share
                 match chess_match.clear_abandoned_bet(&winner, &who) {
                     Ok(()) => {}
-                    Err(_) => {
-                        Self::deposit_event(Event::MatchClearanceError(match_id, winner, who))
-                    }
+                    Err(_) => Self::deposit_event(Event::MatchClearanceError(
+                        match_id,
+                        winner.clone(),
+                        who,
+                    )),
                 }
             }
+
+            // update elo rating
+            let looser = if chess_match.challenger == winner {
+                chess_match.opponent.clone()
+            } else {
+                chess_match.challenger.clone()
+            };
+            Self::update_elo(winner.clone(), 1_f32, looser, 0_f32);
 
             <Matches<T>>::remove(match_id);
             <PlayerMatches<T>>::remove(chess_match.challenger.clone(), match_id);
@@ -643,6 +716,23 @@ pub mod pallet {
             }
 
             Ok(())
+        }
+
+        fn update_elo(player1: T::AccountId, score_1: f32, player2: T::AccountId, score_2: f32) {
+            let rating1 = Self::player_elo(&player1) as f32;
+            let rating2 = Self::player_elo(&player2) as f32;
+            let transformed_rating1 = 10_f32.powf(rating1 / 400_f32);
+            let transformed_rating2 = 10_f32.powf(rating2 / 400_f32);
+            let expected_score1 =
+                &transformed_rating1 / (&transformed_rating1 + &transformed_rating2);
+            let expected_score2 =
+                &transformed_rating2 / (&transformed_rating1 + &transformed_rating2);
+            let new_rating1 =
+                (&rating1 + T::K::get() as f32 * (score_1 - expected_score1)).round() as u16;
+            let new_rating2 =
+                (&rating2 + T::K::get() as f32 * (score_2 - expected_score2)).round() as u16;
+            <PlayerElo<T>>::insert(&player1, new_rating1);
+            <PlayerElo<T>>::insert(&player2, new_rating2);
         }
     }
 }
