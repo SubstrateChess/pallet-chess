@@ -147,6 +147,16 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
                 frame_benchmarking::account("Bob", 0, 1),
                 asset_min_balance * 100,
             ),
+            (
+                asset_id,
+                frame_benchmarking::account("Charlie", 0, 2),
+                asset_min_balance * 100,
+            ),
+            (
+                asset_id,
+                frame_benchmarking::account("Dave", 0, 3),
+                asset_min_balance * 100,
+            ),
         ],
     }
     .assimilate_storage(&mut storage)
@@ -156,6 +166,8 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         elo: vec![
             (frame_benchmarking::account("Alice", 0, 0), 2000),
             (frame_benchmarking::account("Bob", 0, 1), 2400),
+            (frame_benchmarking::account("Charlie", 0, 2), 1000),
+            (frame_benchmarking::account("Dave", 0, 3), 1000),
         ],
     }
     .assimilate_storage(&mut storage)
