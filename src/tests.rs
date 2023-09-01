@@ -534,10 +534,9 @@ fn check_elo_stronger_looses() {
 }
 
 #[test]
-fn check_elo_player_aborts() {
+fn check_elo_player_draws() {
     new_test_ext().execute_with(|| {
         System::set_block_number(1);
-
         let alice = account("Alice", 0, 0);
         let bob = account("Bob", 0, 1);
 
@@ -575,6 +574,63 @@ fn check_elo_player_aborts() {
         // check the elo after the match is complete
         assert_eq!(Chess::player_elo(alice), 2013);
         assert_eq!(Chess::player_elo(bob), 2387);
+    });
+}
+
+#[test]
+fn check_elo_stronger_abandon() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        let alice = account("Alice", 0, 0);
+        let bob = account("Bob", 0, 1);
+
+        let bet_asset_id = AssetId::get();
+        let bet_amount = AssetMinBalance::get() * 5;
+
+        assert_ok!(Chess::create_match(
+            RuntimeOrigin::signed(bob),
+            alice,
+            MatchStyle::Bullet,
+            bet_asset_id,
+            bet_amount
+        ));
+
+        let match_id = Chess::chess_match_id_from_nonce(0).unwrap();
+
+        assert_ok!(Chess::join_match(RuntimeOrigin::signed(alice), match_id));
+
+        // check elo before the match finishes
+        assert_eq!(Chess::player_elo(alice), 2000);
+        assert_eq!(Chess::player_elo(bob), 2400);
+
+        assert_ok!(Chess::make_move(
+            RuntimeOrigin::signed(bob),
+            match_id,
+            "f2f3".into()
+        ));
+        assert_ok!(Chess::make_move(
+            RuntimeOrigin::signed(alice),
+            match_id,
+            "e7e5".into()
+        ));
+
+        // advance the block number to the point where bob's time-to-move is expired
+        System::set_block_number(
+            System::block_number() + <Test as Config>::BulletPeriod::get() + 1,
+        );
+
+        // Bob abandoned, alice claims victory
+        assert_ok!(Chess::clear_abandoned_match(
+            RuntimeOrigin::signed(alice),
+            match_id
+        ));
+
+        assert_eq!(Chess::chess_matches(match_id), None);
+
+        // check the elo after match is complete
+        assert_eq!(Chess::player_elo(alice), 2029);
+        assert_eq!(Chess::player_elo(bob), 2371);
     });
 }
 
