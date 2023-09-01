@@ -620,7 +620,7 @@ fn check_elo_stronger_abandon() {
             System::block_number() + <Test as Config>::BulletPeriod::get() + 1,
         );
 
-        // Bob abandoned, alice claims victory 
+        // Bob abandoned, alice claims victory
         assert_ok!(Chess::clear_abandoned_match(
             RuntimeOrigin::signed(alice),
             match_id
@@ -633,7 +633,6 @@ fn check_elo_stronger_abandon() {
         assert_eq!(Chess::player_elo(bob), 2371);
     });
 }
-
 
 const BOARD_STATE: &str = "Q7/5Q2/8/8/3k4/6P1/6BP/7K b - - 0 67";
 
